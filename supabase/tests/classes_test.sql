@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(26);
+select plan(28);
 
 select public.bangkok_today() as today \gset
 
@@ -47,6 +47,10 @@ insert into public.class_sessions (id, class_type_id, trainer_id, starts_at, end
   ('17171717-0000-0000-0000-000000000003', '16161616-0000-0000-0000-000000000001', null, now(), now() + interval '1 hour', 10, true),
   ('17171717-0000-0000-0000-000000000004', '16161616-0000-0000-0000-000000000001', null, now() - interval '2 hours', now() - interval '1 hour', 10, false),
   ('17171717-0000-0000-0000-000000000005', '16161616-0000-0000-0000-000000000001', null, now() + interval '1 day', now() + interval '25 hours', 10, false);
+
+-- member 2 was booked into session 3 before the owner cancelled it
+insert into public.class_bookings (id, class_session_id, member_id)
+values ('18181818-0000-0000-0000-000000000003', '17171717-0000-0000-0000-000000000003', '12121212-0000-0000-0000-000000000002');
 
 -- member 7 was booked before a freeze covering today was added
 insert into public.class_bookings (id, class_session_id, member_id)
@@ -144,6 +148,19 @@ select throws_ok(format('select public.complete_pt(%L)', :'pt2'), 'P0001', 'แ�
 select public.create_pt_appointment('14141414-0000-0000-0000-000000000010', '15151515-0000-0000-0000-000000000001', now() + interval '2 days') as pt3 \gset
 select public.cancel_pt(:'pt3');
 select is((select pt_left from public.memberships where id = '14141414-0000-0000-0000-000000000010'), 4, 'pt_cancel_no_deduct');
+
+select throws_ok($$select public.mark_attendance('18181818-0000-0000-0000-000000000003', true)$$,
+  'P0001', 'รอบคลาสนี้ถูกยกเลิกแล้ว', 'attend_cancelled_session_rejected');
+
+select public.create_sale('19191919-0000-0000-0000-000000000001', '12121212-0000-0000-0000-000000000010',
+  '[{"package_type_id":"13131313-0000-0000-0000-000000000003","member_ids":["12121212-0000-0000-0000-000000000010"]}]', 0, 'cash') as ptsale \gset
+select m.id as ptms from public.memberships m join public.sale_items i on i.id = m.sale_item_id
+  where i.sale_id = (:'ptsale'::jsonb ->> 'sale_id')::uuid \gset
+select public.create_pt_appointment(:'ptms', '15151515-0000-0000-0000-000000000001', now() + interval '1 day') as pt4 \gset
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-0000000000e1","role":"authenticated"}';
+select public.void_sale((:'ptsale'::jsonb ->> 'sale_id')::uuid, 'ขายผิด');
+select is((select status from public.pt_appointments where id = :'pt4'), 'cancelled', 'void_cancels_pt_appointments');
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-0000000000e2","role":"authenticated"}';
 
 select throws_ok($$insert into public.class_sessions (class_type_id, starts_at, ends_at, capacity)
   values ('16161616-0000-0000-0000-000000000001', now(), now() + interval '1 hour', 5)$$,

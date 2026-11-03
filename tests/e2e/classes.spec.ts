@@ -147,11 +147,14 @@ test.describe("classes", () => {
   test("owner_cancels_session", async ({ page }) => {
     await login(page, OWNER);
     const url = await ownerCreatesSession(page, { capacity: 5, dayOffset: 1 });
-    await page.getByRole("button", { name: "ยกเลิกรอบคลาส" }).click();
-    await expect(page.getByText("รอบนี้ถูกยกเลิก")).toBeVisible();
     const name = await memberWith(page, "รายเดือน");
     await book(page, url, name);
-    await expect(page.getByText("รอบคลาสนี้ถูกยกเลิกแล้ว")).toBeVisible();
+    await page.getByRole("button", { name: "ยกเลิกรอบคลาส" }).click();
+    await expect(page.getByText("รอบนี้ถูกยกเลิก")).toBeVisible();
+    // Existing bookings show as cancelled, with no way to mark attendance or book more.
+    await expect(rosterRow(page, name)).toContainText("ยกเลิก");
+    await expect(rosterRow(page, name).getByRole("button")).toHaveCount(0);
+    await expect(page.getByLabel("ค้นหาสมาชิกเพื่อจอง")).toHaveCount(0);
   });
 
   test("staff_cannot_create_session", async ({ page }) => {

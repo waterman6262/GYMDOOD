@@ -62,7 +62,7 @@ export default async function ClassSessionPage({ params }: PageProps<"/classes/[
         {session.cancelled && <p className="font-semibold text-red-700">รอบนี้ถูกยกเลิก</p>}
       </div>
 
-      <Roster sessionId={session.id} entries={entries} open={!ended} />
+      <Roster sessionId={session.id} entries={entries} open={!ended} cancelled={session.cancelled} />
 
       {staff?.role === "owner" && !session.cancelled && (
         <form action={cancelSession.bind(null, session.id)}>

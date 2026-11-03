@@ -151,6 +151,7 @@ as $$
 declare
   v_booking public.class_bookings;
   v_starts_at timestamptz;
+  v_cancelled boolean;
   v_check_in uuid;
   v_result jsonb;
 begin
@@ -165,7 +166,10 @@ begin
   if v_booking.status = 'cancelled' then
     raise exception 'การจองนี้ถูกยกเลิกแล้ว';
   end if;
-  select starts_at into v_starts_at from public.class_sessions where id = v_booking.class_session_id;
+  select starts_at, cancelled into v_starts_at, v_cancelled from public.class_sessions where id = v_booking.class_session_id;
+  if v_cancelled then
+    raise exception 'รอบคลาสนี้ถูกยกเลิกแล้ว';
+  end if;
   if public.session_date(v_starts_at) <> public.bangkok_today() then
     raise exception 'เช็กชื่อได้เฉพาะวันที่มีคลาส';
   end if;
@@ -262,7 +266,10 @@ begin
     raise exception 'นัดนี้ปิดไปแล้ว';
   end if;
   select * into v_ms from public.memberships where id = v_appt.membership_id for update;
-  if v_ms.status <> 'active' or coalesce(v_ms.pt_left, 0) <= 0 then
+  if v_ms.status <> 'active' then
+    raise exception 'แพ็กเกจ PT ถูกยกเลิกแล้ว';
+  end if;
+  if coalesce(v_ms.pt_left, 0) <= 0 then
     raise exception 'แพ็กเกจ PT ไม่มีชั่วโมงเหลือ';
   end if;
   if public.is_frozen(v_ms.id, public.bangkok_today()) then
@@ -286,6 +293,59 @@ begin
   if not found then
     raise exception 'นัดนี้ปิดไปแล้ว';
   end if;
+end
+$$;
+
+-- void_sale v3: also cancels open PT appointments of the packages it cancels.
+create or replace function public.void_sale(p_sale_id uuid, p_reason text) returns void
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  v_status text;
+begin
+  if not public.is_owner() then
+    raise exception 'เฉพาะเจ้าของเท่านั้นที่ยกเลิกบิลได้';
+  end if;
+  if p_reason is null or btrim(p_reason) = '' then
+    raise exception 'กรุณาระบุเหตุผล';
+  end if;
+
+  select status into v_status from public.sales where id = p_sale_id for update;
+  if not found then
+    raise exception 'ไม่พบบิล';
+  end if;
+  if v_status = 'voided' then
+    raise exception 'บิลนี้ถูกยกเลิกไปแล้ว';
+  end if;
+
+  update public.sales
+  set status = 'voided', void_reason = btrim(p_reason), voided_by = public.current_staff_id(), voided_at = now()
+  where id = p_sale_id;
+
+  update public.memberships set status = 'cancelled'
+  where sale_item_id in (select id from public.sale_items where sale_id = p_sale_id);
+
+  update public.pt_appointments set status = 'cancelled'
+  where status = 'scheduled' and membership_id in (
+    select m.id from public.memberships m
+    join public.sale_items i on i.id = m.sale_item_id
+    where i.sale_id = p_sale_id
+  );
+
+  -- Put back exactly what this sale took off the shelf (its own movements, so a
+  -- later change to track_stock can't add or lose units), on top of today's
+  -- count since receipts or adjustments may have happened in between.
+  with returned as (
+    select product_id, (-sum(change))::int as qty
+    from public.stock_movements
+    where sale_id = p_sale_id and reason = 'sale'
+    group by product_id
+  ), moved as (
+    insert into public.stock_movements (product_id, change, reason, sale_id, created_by)
+    select product_id, qty, 'void', p_sale_id, public.current_staff_id() from returned
+  )
+  update public.products p set stock_qty = p.stock_qty + r.qty
+  from returned r where p.id = r.product_id;
 end
 $$;
 

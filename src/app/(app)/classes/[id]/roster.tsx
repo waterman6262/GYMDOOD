@@ -13,7 +13,18 @@ const STATUS_STYLES = {
   no_show: "bg-slate-200 text-slate-600",
 } as const;
 
-export function Roster({ sessionId, entries, open }: { sessionId: string; entries: RosterEntry[]; open: boolean }) {
+/** `open`: bookings can still be added. `cancelled`: the session was cancelled, so nothing can change. */
+export function Roster({
+  sessionId,
+  entries,
+  open,
+  cancelled,
+}: {
+  sessionId: string;
+  entries: RosterEntry[];
+  open: boolean;
+  cancelled: boolean;
+}) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -25,7 +36,7 @@ export function Roster({ sessionId, entries, open }: { sessionId: string; entrie
 
   return (
     <div className="space-y-4">
-      {open && (
+      {open && !cancelled && (
         <div className="card space-y-2">
           <h2 className="font-semibold">จองให้สมาชิก</h2>
           <MemberPicker label="ค้นหาสมาชิกเพื่อจอง" onPick={(m) => run(() => bookMember(sessionId, m.id))} />
@@ -44,13 +55,17 @@ export function Roster({ sessionId, entries, open }: { sessionId: string; entrie
               <span className="font-mono text-sm text-slate-500">{e.member_code}</span>
             </span>
             <span className="flex flex-wrap items-center gap-2">
-              <span className={`rounded px-2 py-0.5 text-sm ${STATUS_STYLES[e.status]}`}>{STATUS_LABELS[e.status]}</span>
-              {e.status !== "attended" && (
+              {cancelled ? (
+                <span className="rounded bg-red-100 px-2 py-0.5 text-sm text-red-700">ยกเลิก</span>
+              ) : (
+                <span className={`rounded px-2 py-0.5 text-sm ${STATUS_STYLES[e.status]}`}>{STATUS_LABELS[e.status]}</span>
+              )}
+              {!cancelled && e.status !== "attended" && (
                 <button type="button" disabled={pending} onClick={() => run(() => markAttendance(e.id, true))} className="btn-primary">
                   มาแล้ว
                 </button>
               )}
-              {e.status === "booked" && (
+              {!cancelled && e.status === "booked" && (
                 <>
                   <button type="button" disabled={pending} onClick={() => run(() => markAttendance(e.id, false))} className="btn">
                     ไม่มา
