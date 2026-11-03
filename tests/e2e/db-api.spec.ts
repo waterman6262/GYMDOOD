@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { staffClient } from "./supabase-client";
+import { ownerClient, staffClient } from "./supabase-client";
 
 test("concurrent_same_request_id_returns_one_sale", async () => {
   const supabase = await staffClient();
@@ -51,4 +51,32 @@ test("concurrent_scans_deduct_once", async () => {
     .eq("member_id", member!.id)
     .eq("visit_deducted", true);
   expect(count).toBe(1);
+});
+
+test("concurrent_last_item_sells_once", async () => {
+  const owner = await ownerClient();
+  const staff = await staffClient();
+  const { data: product, error } = await owner
+    .from("products")
+    .insert({ name: `ชิ้นสุดท้าย ${Date.now()}`, price: 10 })
+    .select("id")
+    .single();
+  expect(error).toBeNull();
+  await staff.rpc("receive_stock", { p_product_id: product!.id, p_qty: 1, p_note: "ทดสอบ" });
+
+  const sell = () =>
+    staff.rpc("create_sale", {
+      p_client_request_id: crypto.randomUUID(),
+      p_member_id: null,
+      p_items: [{ product_id: product!.id, qty: 1 }],
+      p_discount: 0,
+      p_payment_method: "cash",
+    });
+  const results = await Promise.all([sell(), sell()]);
+
+  expect(results.filter((r) => !r.error)).toHaveLength(1);
+  const failed = results.find((r) => r.error)!;
+  expect(failed.error!.message).toMatch(/^สินค้า ".*" เหลือไม่พอ/);
+  const { data: after } = await staff.from("products").select("stock_qty").eq("id", product!.id).single();
+  expect(after!.stock_qty).toBe(0);
 });
