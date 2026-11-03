@@ -194,3 +194,37 @@ test.describe("receipts", () => {
     await expect(page.getByTestId("buyer")).toContainText("นภา ฟิตเสมอ");
   });
 });
+
+test.describe("void", () => {
+  test("staff_cannot_see_void", async ({ page }) => {
+    await login(page, STAFF);
+    await sellMonthly(page, "วิชัย แข็งแรง");
+    await expect(page.getByRole("button", { name: "ยกเลิกบิล" })).toHaveCount(0);
+  });
+
+  test("void_requires_reason", async ({ page }) => {
+    await login(page, OWNER);
+    await sellMonthly(page, "วิชัย แข็งแรง");
+    await page.getByRole("button", { name: "ยกเลิกบิล" }).click();
+    await page.getByRole("button", { name: "ยืนยันยกเลิกบิล" }).click();
+    await expect(page.getByText("กรุณาระบุเหตุผล")).toBeVisible();
+  });
+
+  test("owner_voids_sale", async ({ page }) => {
+    await login(page, OWNER);
+    const name = `ยกเลิก ทดสอบ${String(Date.now()).slice(-6)}`;
+    const memberId = await newMember(page, name);
+    const { publicUrl } = await sellMonthly(page, name);
+    await page.getByRole("button", { name: "ยกเลิกบิล" }).click();
+    await page.getByLabel("เหตุผลที่ยกเลิก").fill("ลูกค้าเปลี่ยนใจ");
+    await page.getByRole("button", { name: "ยืนยันยกเลิกบิล" }).click();
+    await expect(page.getByText("ยกเลิกแล้ว")).toBeVisible();
+    await expect(page.getByRole("button", { name: "ยกเลิกบิล" })).toHaveCount(0);
+
+    await page.goto(`/members/${memberId}`);
+    await expect(page.getByTestId("membership-row")).toContainText("ยกเลิก");
+
+    await page.goto(publicUrl);
+    await expect(page.getByText("ยกเลิกแล้ว")).toBeVisible();
+  });
+});
