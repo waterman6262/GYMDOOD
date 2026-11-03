@@ -199,3 +199,34 @@ test.describe("owner settings", () => {
     await expect(page.getByText("เลข PromptPay ต้องเป็นเบอร์มือถือ 10 หลัก หรือเลขประจำตัว 13 หลัก")).toBeVisible();
   });
 });
+
+test.describe("owner-only pages without the settings layout", () => {
+  // A client-side navigation can render only the page segment, skipping
+  // settings/layout.tsx. Each settings page must check the owner itself.
+  // [target page, tab to click from /settings/packages, text only the page body renders]
+  const cases = [
+    ["/settings/staff", "พนักงาน", OWNER.email],
+    ["/settings/shop", "ข้อมูลร้าน", "ข้อความท้ายใบเสร็จ"],
+  ] as const;
+
+  for (const [path, tab, secret] of cases) {
+    test(`staff_rsc_request_blocked ${path}`, async ({ browser }) => {
+      // Capture the exact RSC request a real owner navigation sends.
+      const ownerPage = await (await browser.newContext()).newPage();
+      await login(ownerPage, OWNER);
+      await ownerPage.goto("/settings/packages");
+      const rscRequest = ownerPage.waitForRequest((r) => r.url().includes(path) && !!r.headers()["rsc"]);
+      await ownerPage.getByRole("link", { name: tab, exact: true }).click();
+      const headers = (await rscRequest).headers();
+      const replay = Object.fromEntries(
+        Object.entries(headers).filter(([k]) => k === "rsc" || k.startsWith("next-")),
+      );
+
+      // Replay it as staff: the page segment alone must not leak owner data.
+      const staffPage = await (await browser.newContext()).newPage();
+      await login(staffPage, STAFF);
+      const res = await staffPage.request.get((await rscRequest).url(), { headers: replay, maxRedirects: 0 });
+      expect(await res.text()).not.toContain(secret);
+    });
+  }
+});

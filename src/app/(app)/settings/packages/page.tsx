@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { requireOwnerPage } from "@/lib/auth";
 import { PACKAGE_KIND_LABELS } from "@/lib/packages/schema";
 import { createClient } from "@/lib/supabase/server";
 import { setPackageTypeActive } from "./actions";
@@ -20,6 +21,7 @@ function describe(p: PackageTypeRow) {
 }
 
 export default async function PackagesSettingsPage({ searchParams }: PageProps<"/settings/packages">) {
+  await requireOwnerPage();
   const { edit } = await searchParams;
   const supabase = await createClient();
   const { data } = await supabase

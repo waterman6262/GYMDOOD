@@ -1,3 +1,4 @@
+import { requireOwnerPage } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { NewStaffForm, StaffActiveButton } from "./staff-forms";
@@ -5,7 +6,7 @@ import { NewStaffForm, StaffActiveButton } from "./staff-forms";
 type StaffRow = { id: string; user_id: string; name: string; role: "owner" | "staff"; active: boolean };
 
 export default async function StaffSettingsPage() {
-  // The settings layout has already checked that the viewer is the owner.
+  await requireOwnerPage();
   const supabase = await createClient();
   const { data } = await supabase.from("staff").select("id, user_id, name, role, active").order("created_at");
   const staff = (data ?? []) as StaffRow[];
