@@ -123,3 +123,74 @@ test.describe.serial("promptpay", () => {
     await expect(page.getByText("QR PromptPay")).toBeVisible();
   });
 });
+
+async function newMember(page: Page, name: string) {
+  await page.goto("/members/new");
+  await page.getByLabel("ชื่อ-นามสกุล").fill(name);
+  await page.getByRole("button", { name: "บันทึก" }).click();
+  await expect(page.getByTestId("member-code")).toBeVisible();
+  return page.url().split("/").pop()!;
+}
+
+async function sellMonthly(page: Page, memberName: string) {
+  await page.goto("/sell");
+  await pickBuyer(page, memberName);
+  await addPackage(page, "รายเดือน");
+  const receiptNo = await pay(page);
+  const publicUrl = (await page.getByRole("button", { name: "คัดลอกลิงก์ใบเสร็จ" }).getAttribute("data-share-url"))!;
+  return { receiptNo, publicUrl, saleUrl: page.url() };
+}
+
+test.describe("receipts", () => {
+  test("public_receipt_without_login", async ({ page, browser }) => {
+    await login(page, STAFF);
+    const { receiptNo, publicUrl } = await sellMonthly(page, "วิชัย แข็งแรง");
+    const anon = await (await browser.newContext()).newPage();
+    await anon.goto(publicUrl);
+    await expect(anon.getByTestId("receipt-no")).toHaveText(receiptNo);
+    await expect(anon.getByText("วิชัย แข็งแรง")).toBeVisible();
+    // public_receipt_hides_phone
+    await expect(anon.locator("body")).not.toContainText("0822222222");
+  });
+
+  test("unknown_receipt_404", async ({ page }) => {
+    await page.goto("/r/nope");
+    await expect(page.getByText("ไม่พบใบเสร็จ")).toBeVisible();
+  });
+
+  test("member_page_lists_memberships", async ({ page }) => {
+    await login(page, STAFF);
+    const name = `ต่ออายุ ทดสอบ${String(Date.now()).slice(-6)}`;
+    const id = await newMember(page, name);
+    await sellMonthly(page, name);
+    await sellMonthly(page, name);
+    await page.goto(`/members/${id}`);
+    const rows = page.getByTestId("membership-row");
+    await expect(rows).toHaveCount(2);
+    await expect(rows.filter({ hasText: "ใช้งานได้" })).toHaveCount(1);
+    await expect(rows.filter({ hasText: "รอเริ่ม" })).toHaveCount(1);
+  });
+
+  test("staff_sales_list_today_only", async ({ page }) => {
+    await login(page, STAFF);
+    const { receiptNo } = await sellMonthly(page, "วิชัย แข็งแรง");
+    await page.goto("/sales");
+    await expect(page.getByLabel("วันที่")).toHaveCount(0);
+    await expect(page.getByRole("link", { name: receiptNo })).toBeVisible();
+  });
+
+  test("owner_sales_list_has_date_picker", async ({ page }) => {
+    await login(page, OWNER);
+    await page.goto("/sales");
+    await expect(page.getByLabel("วันที่")).toBeVisible();
+  });
+
+  test("sell_button_from_member_page", async ({ page }) => {
+    await login(page, STAFF);
+    await page.goto("/members?q=นภา");
+    await page.getByRole("link", { name: "นภา ฟิตเสมอ" }).click();
+    await page.getByRole("link", { name: "ขายแพ็กเกจ" }).click();
+    await expect(page).toHaveURL(/\/sell\?member=/);
+    await expect(page.getByTestId("buyer")).toContainText("นภา ฟิตเสมอ");
+  });
+});

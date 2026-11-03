@@ -40,3 +40,28 @@ body {
     @apply mt-1 text-sm text-red-600;
   }
 }
+
+/* Receipts print on 80 mm thermal paper: only the receipt itself. */
+@media print {
+  @page {
+    size: 80mm auto;
+    margin: 4mm;
+  }
+  body * {
+    visibility: hidden;
+  }
+  .receipt,
+  .receipt * {
+    visibility: visible;
+  }
+  .receipt {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 72mm;
+    max-width: none;
+    box-shadow: none;
+    border-radius: 0;
+    padding: 0;
+    --tw-ring-shadow: 0 0 #0000;
+  }
+}

@@ -2,12 +2,21 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCurrentStaff } from "@/lib/auth";
 import { getMember } from "@/lib/members/queries";
+import { getMemberships, MEMBERSHIP_STATE_LABELS, type MembershipState } from "@/lib/memberships/queries";
+import { formatThaiDate } from "@/lib/sales/format";
 import { setMemberActive, updateMember } from "../actions";
 import { MemberForm } from "../member-form";
 
+const STATE_STYLES: Record<MembershipState, string> = {
+  active: "bg-green-100 text-green-800",
+  upcoming: "bg-sky-100 text-sky-800",
+  expired: "bg-slate-200 text-slate-600",
+  cancelled: "bg-red-100 text-red-700",
+};
+
 export default async function MemberDetailPage({ params }: PageProps<"/members/[id]">) {
   const { id } = await params;
-  const [member, staff] = await Promise.all([getMember(id), getCurrentStaff()]);
+  const [member, staff, memberships] = await Promise.all([getMember(id), getCurrentStaff(), getMemberships(id)]);
   if (!member) notFound();
 
   return (
@@ -18,6 +27,11 @@ export default async function MemberDetailPage({ params }: PageProps<"/members/[
       <div className="flex flex-wrap items-center gap-4">
         <h1 className="text-2xl font-bold">{member.name}</h1>
         {!member.active && <span className="rounded bg-slate-200 px-2 py-0.5 text-sm text-slate-600">ปิดใช้งาน</span>}
+        {member.active && (
+          <Link href={`/sell?member=${member.id}`} className="btn-primary">
+            ขายแพ็กเกจ
+          </Link>
+        )}
       </div>
       <p className="text-slate-600">
         รหัสสมาชิก{" "}
@@ -25,6 +39,29 @@ export default async function MemberDetailPage({ params }: PageProps<"/members/[
           {member.member_code}
         </span>
       </p>
+
+      <section className="card space-y-3">
+        <h2 className="text-lg font-semibold">แพ็กเกจ</h2>
+        {memberships.length === 0 ? (
+          <p className="text-slate-500">ยังไม่มีแพ็กเกจ</p>
+        ) : (
+          <ul className="divide-y divide-slate-200">
+            {memberships.map((m) => (
+              <li key={m.id} data-testid="membership-row" className="flex flex-wrap items-center justify-between gap-2 py-2">
+                <div>
+                  <p className="font-medium">{m.package_name}</p>
+                  <p className="text-sm text-slate-500">
+                    {formatThaiDate(m.start_date)} – {formatThaiDate(m.end_date)}
+                    {m.kind === "visits" && ` · เหลือ ${m.visits_left} ครั้ง`}
+                    {m.kind === "pt" && ` · เหลือ ${m.pt_left} ชั่วโมง`}
+                  </p>
+                </div>
+                <span className={`rounded px-2 py-0.5 text-sm ${STATE_STYLES[m.state]}`}>{MEMBERSHIP_STATE_LABELS[m.state]}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <MemberForm key={member.id} action={updateMember.bind(null, member.id)} member={member} />
 
