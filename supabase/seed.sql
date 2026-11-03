@@ -51,3 +51,6 @@ insert into public.products (name, price, track_stock, stock_qty, low_stock_at) 
   ('เกลือแร่', 25, true, 3, 6),
   ('เช่าผ้าเช็ดตัว', 20, false, 0, 0),
   ('เช่าล็อกเกอร์ (วัน)', 30, false, 0, 0);
+
+insert into public.trainers (name, phone) values ('โค้ชเอ', '0855555555'), ('โค้ชบี', '0866666666');
+insert into public.class_types (name, default_capacity) values ('โยคะ', 15), ('มวยไทย', 10);
