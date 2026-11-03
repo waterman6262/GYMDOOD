@@ -1,6 +1,7 @@
 "use server";
 
 import { searchMembers } from "@/lib/members/queries";
+import type { toSaleItems } from "@/lib/sales/cart";
 import type { PaymentMethod } from "@/lib/sales/format";
 import { createClient } from "@/lib/supabase/server";
 
@@ -15,7 +16,7 @@ export async function findMembers(q: string): Promise<MemberHit[]> {
 export type SubmitSaleInput = {
   clientRequestId: string;
   memberId: string;
-  items: { package_type_id: string; member_ids: string[] }[];
+  items: ReturnType<typeof toSaleItems>;
   discount: number;
   paymentMethod: PaymentMethod;
 };

@@ -45,13 +45,15 @@ export function SellScreen({ packages, promptpayId, initialBuyer }: Props) {
     if (!buyer) return;
     setLines((prev) => [
       ...prev,
-      { key: crypto.randomUUID(), packageTypeId: pkg.id, name: pkg.name, price: Number(pkg.price), seats: pkg.seats, memberIds: [buyer.id] },
+      { kind: "package", key: crypto.randomUUID(), packageTypeId: pkg.id, name: pkg.name, price: Number(pkg.price), seats: pkg.seats, memberIds: [buyer.id] },
     ]);
     setError(null);
   }
 
   function setSecondMember(key: string, member: MemberHit) {
-    setLines((prev) => prev.map((l) => (l.key === key ? { ...l, memberIds: [l.memberIds[0], member.id] } : l)));
+    setLines((prev) =>
+      prev.map((l) => (l.key === key && l.kind === "package" ? { ...l, memberIds: [l.memberIds[0], member.id] } : l)),
+    );
     setSecondNames((prev) => ({ ...prev, [key]: member.name }));
     setError(null);
   }
@@ -59,7 +61,7 @@ export function SellScreen({ packages, promptpayId, initialBuyer }: Props) {
   async function checkout() {
     if (submitting.current) return;
     if (!buyer) return setError("กรุณาเลือกสมาชิก");
-    const problem = cartError(lines);
+    const problem = cartError(lines, buyer?.id ?? null);
     if (problem) return setError(problem);
     if (!payment) return setError("กรุณาเลือกวิธีชำระเงิน");
 
@@ -144,7 +146,7 @@ export function SellScreen({ packages, promptpayId, initialBuyer }: Props) {
                   </button>
                 </span>
               </div>
-              {line.seats === 2 &&
+              {line.kind === "package" && line.seats === 2 &&
                 (secondNames[line.key] ? (
                   <p className="text-sm text-slate-600">สมาชิกคนที่ 2: {secondNames[line.key]}</p>
                 ) : (
