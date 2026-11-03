@@ -1,24 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
-import { login, OWNER, STAFF } from "./helpers";
+import { addPackage, login, newMember, OWNER, pay, pickBuyer, STAFF } from "./helpers";
 
 const RECEIPT_NO = /R\d{4}-\d{6}/;
-
-async function pickBuyer(page: Page, name: string) {
-  await page.getByLabel("ค้นหาผู้ซื้อ").fill(name);
-  await page.getByRole("button", { name: `เลือก ${name}` }).click();
-  await expect(page.getByTestId("buyer")).toContainText(name);
-}
-
-async function addPackage(page: Page, name: string) {
-  await page.getByRole("button", { name: `เพิ่ม ${name}`, exact: true }).click();
-}
-
-async function pay(page: Page, method: "เงินสด" | "โอน" | "QR PromptPay" = "เงินสด") {
-  await page.getByRole("button", { name: method, exact: true }).click();
-  await page.getByRole("button", { name: "ชำระเงิน" }).click();
-  await expect(page).toHaveURL(/\/sales\/[0-9a-f-]{36}$/);
-  return (await page.getByTestId("receipt-no").textContent())!.trim();
-}
 
 async function setPromptPay(page: Page, value: string) {
   await login(page, OWNER);
@@ -123,14 +106,6 @@ test.describe.serial("promptpay", () => {
     await expect(page.getByText("QR PromptPay")).toBeVisible();
   });
 });
-
-async function newMember(page: Page, name: string) {
-  await page.goto("/members/new");
-  await page.getByLabel("ชื่อ-นามสกุล").fill(name);
-  await page.getByRole("button", { name: "บันทึก" }).click();
-  await expect(page.getByTestId("member-code")).toBeVisible();
-  return page.url().split("/").pop()!;
-}
 
 async function sellMonthly(page: Page, memberName: string) {
   await page.goto("/sell");

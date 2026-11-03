@@ -7,7 +7,7 @@ type NavItem = { href: string; label: string; ready: boolean; ownerOnly?: boolea
 
 // Screens from spec §4. `ready: false` items arrive in later plans.
 const NAV: NavItem[] = [
-  { href: "/", label: "เช็กอิน", ready: false },
+  { href: "/", label: "เช็กอิน", ready: true },
   { href: "/sell", label: "ขาย", ready: true },
   { href: "/members", label: "สมาชิก", ready: true },
   { href: "/classes", label: "คลาส/PT", ready: false },
