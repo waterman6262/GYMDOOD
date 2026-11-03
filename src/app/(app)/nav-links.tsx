@@ -10,7 +10,7 @@ const NAV: NavItem[] = [
   { href: "/", label: "เช็กอิน", ready: true },
   { href: "/sell", label: "ขาย", ready: true },
   { href: "/members", label: "สมาชิก", ready: true },
-  { href: "/classes", label: "คลาส/PT", ready: false },
+  { href: "/classes", label: "คลาส/PT", ready: true },
   { href: "/products", label: "สินค้า", ready: true },
   { href: "/reports", label: "รายงาน", ready: false },
   { href: "/settings/packages", label: "ตั้งค่า", ready: true, ownerOnly: true },

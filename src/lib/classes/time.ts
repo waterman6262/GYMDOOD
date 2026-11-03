@@ -42,3 +42,8 @@ export function bangkokToday(): string {
 export function bangkokDateOf(iso: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(new Date(iso));
 }
+
+/** Whether a timestamp has already passed. */
+export function isPast(iso: string): boolean {
+  return new Date(iso).getTime() <= Date.now();
+}
