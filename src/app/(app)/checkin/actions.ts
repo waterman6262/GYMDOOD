@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { normalizeCode, type CheckInResult } from "@/lib/checkin/types";
+import { getPhotoUrls } from "@/lib/members/photos";
 import { searchMembers } from "@/lib/members/queries";
 import { createClient } from "@/lib/supabase/server";
 import type { MemberHit } from "../sell/actions";
@@ -34,5 +35,8 @@ export async function checkInMember(memberId: string, overrideReason?: string): 
     return { error: error.code === "P0001" ? error.message : "เช็กอินไม่สำเร็จ กรุณาตรวจอินเทอร์เน็ตแล้วลองใหม่" };
   }
   revalidatePath("/");
-  return data as CheckInResult;
+  const result = data as CheckInResult;
+  const { data: member } = await supabase.from("members").select("photo_url").eq("id", memberId).single();
+  const photos = await getPhotoUrls([member?.photo_url]);
+  return { ...result, photo_url: member?.photo_url ? (photos[member.photo_url] ?? null) : null };
 }

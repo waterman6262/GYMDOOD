@@ -157,3 +157,48 @@ test.describe("member card and freeze", () => {
     await expect(page.getByText("วันสิ้นสุดต้องไม่ก่อนวันเริ่ม")).toBeVisible();
   });
 });
+
+test.describe("member photos", () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page, STAFF);
+  });
+
+  async function uploadPhoto(page: Page, memberId: string, file: string) {
+    await page.goto(`/members/${memberId}`);
+    await page.getByLabel("ถ่ายหรือเลือกรูป").setInputFiles(file);
+  }
+
+  test("upload_photo_shows_on_member_page_and_checkin", async ({ page }) => {
+    const m = await member(page, "รายเดือน");
+    await uploadPhoto(page, m.id, "tests/fixtures/member.png");
+    const img = page.getByRole("img", { name: m.name });
+    await expect(img).toBeVisible();
+    await expect(img).toHaveAttribute("src", /\/storage\/v1\/object\/sign\/member-photos\//);
+
+    // photo_shows_on_checkin
+    await page.goto("/");
+    await scan(page, m.code);
+    await expect(result(page).getByRole("img", { name: m.name })).toBeVisible();
+  });
+
+  test("non_image_rejected", async ({ page }) => {
+    const m = await member(page);
+    await uploadPhoto(page, m.id, "package.json");
+    await expect(page.getByText("ไฟล์ต้องเป็นรูปภาพขนาดไม่เกิน 15MB")).toBeVisible();
+  });
+
+  test("public_receipt_has_no_photo", async ({ page, browser }) => {
+    const m = await member(page);
+    await uploadPhoto(page, m.id, "tests/fixtures/member.png");
+    await expect(page.getByRole("img", { name: m.name })).toBeVisible();
+    await page.goto("/sell");
+    await pickBuyer(page, m.name);
+    await addPackage(page, "รายวัน");
+    await pay(page);
+    const url = (await page.getByRole("button", { name: "คัดลอกลิงก์ใบเสร็จ" }).getAttribute("data-share-url"))!;
+    const anon = await (await browser.newContext()).newPage();
+    await anon.goto(url);
+    await expect(anon.getByTestId("receipt-no")).toBeVisible();
+    await expect(anon.locator('img[src*="member-photos"]')).toHaveCount(0);
+  });
+});

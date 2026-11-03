@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCurrentStaff } from "@/lib/auth";
+import { getPhotoUrls } from "@/lib/members/photos";
 import { getMember } from "@/lib/members/queries";
 import { bangkokToday, getMemberships, MEMBERSHIP_STATE_LABELS, type MembershipState } from "@/lib/memberships/queries";
 import { formatThaiDate } from "@/lib/sales/format";
 import { setMemberActive, updateMember } from "../actions";
 import { MemberForm } from "../member-form";
 import { FreezeControls } from "./freeze-form";
+import { PhotoUpload } from "./photo-upload";
 
 const STATE_STYLES: Record<MembershipState, string> = {
   active: "bg-green-100 text-green-800",
@@ -21,12 +23,14 @@ export default async function MemberDetailPage({ params }: PageProps<"/members/[
   const [member, staff, memberships] = await Promise.all([getMember(id), getCurrentStaff(), getMemberships(id)]);
   if (!member) notFound();
   const today = bangkokToday();
+  const photos = await getPhotoUrls([member.photo_url]);
 
   return (
     <div className="space-y-6">
       <Link href="/members" className="text-sm text-indigo-700 hover:underline">
         ← กลับไปรายชื่อ
       </Link>
+      <PhotoUpload memberId={member.id} name={member.name} photoUrl={member.photo_url ? (photos[member.photo_url] ?? null) : null} />
       <div className="flex flex-wrap items-center gap-4">
         <h1 className="text-2xl font-bold">{member.name}</h1>
         {!member.active && <span className="rounded bg-slate-200 px-2 py-0.5 text-sm text-slate-600">ปิดใช้งาน</span>}

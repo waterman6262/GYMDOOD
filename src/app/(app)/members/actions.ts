@@ -54,3 +54,12 @@ export async function setMemberActive(id: string, active: boolean) {
   revalidatePath(`/members/${id}`);
   revalidatePath("/members");
 }
+
+/** Points the member at their photo, already uploaded to member-photos/{id}.jpg. */
+export async function setMemberPhoto(id: string): Promise<{ error?: string }> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("members").update({ photo_url: `${id}.jpg` }).eq("id", id);
+  if (error) return { error: "บันทึกรูปไม่สำเร็จ" };
+  revalidatePath(`/members/${id}`);
+  return {};
+}

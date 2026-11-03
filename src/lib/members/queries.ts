@@ -10,9 +10,11 @@ export type Member = {
   line_id: string | null;
   note: string | null;
   active: boolean;
+  /** Path in the private member-photos bucket. */
+  photo_url: string | null;
 };
 
-const MEMBER_COLUMNS = "id, member_code, name, phone, line_id, note, active";
+const MEMBER_COLUMNS = "id, member_code, name, phone, line_id, note, active, photo_url";
 
 /**
  * Search by partial name, partial phone (dashes ignored) or exact member code.
