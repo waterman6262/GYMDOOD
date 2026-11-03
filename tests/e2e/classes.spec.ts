@@ -160,3 +160,53 @@ test.describe("classes", () => {
     await expect(page.getByRole("button", { name: "บันทึกรอบคลาส" })).toHaveCount(0);
   });
 });
+
+async function schedulePt(page: Page, name: string) {
+  await page.goto(`/members?q=${encodeURIComponent(name)}`);
+  await page.getByRole("link", { name }).click();
+  await page.getByRole("link", { name: "นัด PT" }).click();
+  await expect(page.getByTestId("pt-member")).toContainText(name);
+  await page.getByLabel("แพ็กเกจ PT").selectOption({ index: 0 });
+  await page.getByLabel("เทรนเนอร์").selectOption({ label: "โค้ชเอ" });
+  await page.getByLabel("วันที่").fill(bkkDate(0));
+  await page.getByLabel("เวลา").fill("23:00");
+  await page.getByRole("button", { name: "บันทึกนัด" }).click();
+  await expect(page.getByTestId("pt-upcoming").getByRole("listitem").filter({ hasText: name })).toBeVisible();
+}
+
+async function memberPtHours(page: Page, name: string) {
+  await page.goto(`/members?q=${encodeURIComponent(name)}`);
+  await page.getByRole("link", { name }).click();
+  return page.getByTestId("membership-row");
+}
+
+test.describe("pt", () => {
+  test("pt_flow", async ({ page }) => {
+    await login(page, STAFF);
+    const name = await memberWith(page, "PT 10 ชั่วโมง");
+    await schedulePt(page, name);
+    const appt = page.getByTestId("pt-upcoming").getByRole("listitem").filter({ hasText: name });
+    await appt.getByRole("button", { name: "เทรนแล้ว" }).click();
+    await expect(page.getByTestId("pt-done").getByRole("listitem").filter({ hasText: name })).toBeVisible();
+    await expect(await memberPtHours(page, name)).toContainText("เหลือ 9 ชั่วโมง");
+  });
+
+  test("pt_cancel_keeps_hours", async ({ page }) => {
+    await login(page, STAFF);
+    const name = await memberWith(page, "PT 10 ชั่วโมง");
+    await schedulePt(page, name);
+    const appt = page.getByTestId("pt-upcoming").getByRole("listitem").filter({ hasText: name });
+    await appt.getByRole("button", { name: "ยกเลิกนัด" }).click();
+    await expect(page.getByTestId("pt-upcoming").getByRole("listitem").filter({ hasText: name })).toHaveCount(0);
+    await expect(await memberPtHours(page, name)).toContainText("เหลือ 10 ชั่วโมง");
+  });
+
+  test("pt_no_package_message", async ({ page }) => {
+    await login(page, STAFF);
+    const name = await memberWith(page);
+    await page.goto("/pt");
+    await page.getByLabel("ค้นหาสมาชิก").fill(name);
+    await page.getByRole("button", { name: `เลือก ${name}` }).click();
+    await expect(page.getByText("สมาชิกนี้ไม่มีแพ็กเกจ PT ที่ใช้ได้")).toBeVisible();
+  });
+});

@@ -42,6 +42,11 @@ export default async function MemberDetailPage({ params }: PageProps<"/members/[
         <Link href={`/members/${member.id}/card`} className="btn">
           บัตรสมาชิก
         </Link>
+        {member.active && memberships.some((m) => m.kind === "pt" && ["active", "upcoming", "frozen"].includes(m.state)) && (
+          <Link href={`/pt?member=${member.id}`} className="btn">
+            นัด PT
+          </Link>
+        )}
       </div>
       <p className="text-slate-600">
         รหัสสมาชิก{" "}
