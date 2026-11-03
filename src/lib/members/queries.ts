@@ -21,7 +21,7 @@ const MEMBER_COLUMNS = "id, member_code, name, phone, line_id, note, active";
  */
 export async function searchMembers(q: string, includeInactive = false): Promise<Member[]> {
   const supabase = await createClient();
-  let query = supabase.from("members").select(MEMBER_COLUMNS).order("name").limit(50);
+  let query = supabase.from("members").select(MEMBER_COLUMNS).order("created_at", { ascending: false }).limit(50);
   if (!includeInactive) query = query.eq("active", true);
 
   const term = q.replace(/[,()*%\\"':]/g, "").trim();

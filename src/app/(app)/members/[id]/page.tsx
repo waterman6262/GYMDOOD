@@ -2,14 +2,16 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCurrentStaff } from "@/lib/auth";
 import { getMember } from "@/lib/members/queries";
-import { getMemberships, MEMBERSHIP_STATE_LABELS, type MembershipState } from "@/lib/memberships/queries";
+import { bangkokToday, getMemberships, MEMBERSHIP_STATE_LABELS, type MembershipState } from "@/lib/memberships/queries";
 import { formatThaiDate } from "@/lib/sales/format";
 import { setMemberActive, updateMember } from "../actions";
 import { MemberForm } from "../member-form";
+import { FreezeControls } from "./freeze-form";
 
 const STATE_STYLES: Record<MembershipState, string> = {
   active: "bg-green-100 text-green-800",
-  upcoming: "bg-sky-100 text-sky-800",
+  frozen: "bg-sky-100 text-sky-800",
+  upcoming: "bg-violet-100 text-violet-800",
   expired: "bg-slate-200 text-slate-600",
   cancelled: "bg-red-100 text-red-700",
 };
@@ -18,6 +20,7 @@ export default async function MemberDetailPage({ params }: PageProps<"/members/[
   const { id } = await params;
   const [member, staff, memberships] = await Promise.all([getMember(id), getCurrentStaff(), getMemberships(id)]);
   if (!member) notFound();
+  const today = bangkokToday();
 
   return (
     <div className="space-y-6">
@@ -32,6 +35,9 @@ export default async function MemberDetailPage({ params }: PageProps<"/members/[
             ขายแพ็กเกจ
           </Link>
         )}
+        <Link href={`/members/${member.id}/card`} className="btn">
+          บัตรสมาชิก
+        </Link>
       </div>
       <p className="text-slate-600">
         รหัสสมาชิก{" "}
@@ -57,6 +63,14 @@ export default async function MemberDetailPage({ params }: PageProps<"/members/[
                   </p>
                 </div>
                 <span className={`rounded px-2 py-0.5 text-sm ${STATE_STYLES[m.state]}`}>{MEMBERSHIP_STATE_LABELS[m.state]}</span>
+                {m.kind !== "day" && (m.freezes.length > 0 || ["active", "frozen", "upcoming"].includes(m.state)) && (
+                  <FreezeControls
+                    membershipId={m.id}
+                    freezes={m.freezes}
+                    canFreeze={["active", "frozen", "upcoming"].includes(m.state)}
+                    today={today}
+                  />
+                )}
               </li>
             ))}
           </ul>

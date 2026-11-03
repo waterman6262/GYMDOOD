@@ -95,3 +95,65 @@ test.describe("check-in", () => {
     await expect(page.getByRole("button", { name: "สแกนด้วยกล้อง" })).toBeVisible();
   });
 });
+
+test.describe("member card and freeze", () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page, STAFF);
+  });
+
+  test("member_card_has_qr", async ({ page }) => {
+    const m = await member(page);
+    await page.goto(`/members/${m.id}`);
+    await page.getByRole("link", { name: "บัตรสมาชิก" }).click();
+    await expect(page.getByText(m.code)).toBeVisible();
+    await expect(page.getByTestId("member-qr").locator("svg")).toBeVisible();
+  });
+
+  test("card_download_png", async ({ page }) => {
+    const m = await member(page);
+    await page.goto(`/members/${m.id}/card`);
+    const download = page.waitForEvent("download");
+    await page.getByRole("button", { name: "บันทึกรูป" }).click();
+    expect((await download).suggestedFilename()).toBe(`${m.code}.png`);
+  });
+
+  test("freeze_then_checkin_denied", async ({ page }) => {
+    const m = await member(page, "รายเดือน");
+    await page.goto(`/members/${m.id}`);
+    const row = page.getByTestId("membership-row");
+    const before = (await row.textContent())!;
+    await row.getByRole("button", { name: "พักสมาชิก" }).click();
+    const end = new Date(Date.now() + 6 * 86400000 + 7 * 3600000).toISOString().slice(0, 10);
+    await page.getByLabel("วันสิ้นสุด").fill(end);
+    await page.getByLabel("เหตุผล").fill("บาดเจ็บ");
+    await page.getByRole("button", { name: "ยืนยันพัก" }).click();
+    await expect(row).toContainText("พักอยู่");
+    expect(await row.textContent()).not.toBe(before);
+
+    await page.goto("/");
+    await scan(page, m.code);
+    await expect(result(page)).toHaveAttribute("data-status", "denied");
+    await expect(result(page)).toContainText("พักสมาชิกอยู่");
+
+    // unfreeze_restores
+    await page.goto(`/members/${m.id}`);
+    await page.getByRole("button", { name: "ยกเลิกการพัก" }).click();
+    await expect(row).toContainText("ใช้งานได้");
+    await page.goto("/");
+    await scan(page, m.code);
+    await expect(result(page)).toHaveAttribute("data-status", "ok");
+  });
+
+  test("freeze_end_before_start_error", async ({ page }) => {
+    const m = await member(page, "รายเดือน");
+    await page.goto(`/members/${m.id}`);
+    await page.getByTestId("membership-row").getByRole("button", { name: "พักสมาชิก" }).click();
+    const tomorrow = new Date(Date.now() + 86400000 + 7 * 3600000).toISOString().slice(0, 10);
+    const today = new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10);
+    await page.getByLabel("วันเริ่มพัก").fill(tomorrow);
+    await page.getByLabel("วันสิ้นสุด").fill(today);
+    await page.getByLabel("เหตุผล").fill("ทดสอบ");
+    await page.getByRole("button", { name: "ยืนยันพัก" }).click();
+    await expect(page.getByText("วันสิ้นสุดต้องไม่ก่อนวันเริ่ม")).toBeVisible();
+  });
+});
