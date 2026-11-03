@@ -182,6 +182,9 @@ begin
   if p_start < v_today then
     raise exception 'วันเริ่มพักต้องไม่ย้อนหลัง';
   end if;
+  if p_start < v_ms.start_date then
+    raise exception 'วันเริ่มพักต้องไม่ก่อนวันเริ่มแพ็กเกจ';
+  end if;
   if p_start > v_ms.end_date then
     raise exception 'แพ็กเกจหมดอายุก่อนวันเริ่มพัก';
   end if;
@@ -199,6 +202,14 @@ begin
   v_days := p_end - p_start + 1;
 
   if v_ms.kind = 'duration' then
+    -- Queued packages move as a whole, including their own freezes.
+    update public.freezes
+    set start_date = start_date + v_days, end_date = end_date + v_days
+    where status = 'active' and membership_id in (
+      select id from public.memberships
+      where member_id = v_ms.member_id and kind = 'duration' and status = 'active'
+        and id <> v_ms.id and start_date > v_ms.end_date
+    );
     update public.memberships
     set start_date = start_date + v_days, end_date = end_date + v_days
     where member_id = v_ms.member_id and kind = 'duration' and status = 'active'
@@ -238,6 +249,9 @@ begin
   end if;
 
   select * into v_ms from public.memberships where id = v_freeze.membership_id for update;
+  if v_ms.status <> 'active' then
+    raise exception 'แพ็กเกจนี้ถูกยกเลิกแล้ว';
+  end if;
 
   if v_freeze.start_date >= v_today then
     -- Not started yet (or starts today): give back every day.
@@ -250,6 +264,13 @@ begin
   end if;
 
   if v_ms.kind = 'duration' then
+    update public.freezes
+    set start_date = start_date - v_restore, end_date = end_date - v_restore
+    where status = 'active' and membership_id in (
+      select id from public.memberships
+      where member_id = v_ms.member_id and kind = 'duration' and status = 'active'
+        and id <> v_ms.id and start_date > v_ms.end_date
+    );
     update public.memberships
     set start_date = start_date - v_restore, end_date = end_date - v_restore
     where member_id = v_ms.member_id and kind = 'duration' and status = 'active'

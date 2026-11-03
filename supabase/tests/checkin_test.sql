@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(28);
+select plan(32);
 
 select public.bangkok_today() as today \gset
 
@@ -16,7 +16,7 @@ insert into public.package_types (id, name, kind, price, duration_days, visits, 
 
 insert into public.members (id, name, active)
 select ('ffffffff-0000-0000-0000-0000000000' || lpad(n::text, 2, '0'))::uuid, 'เช็กอิน ' || n, n <> 99
-from generate_series(1, 16) n;
+from generate_series(1, 19) n;
 insert into public.members (id, name, active) values ('ffffffff-0000-0000-0000-000000000099', 'ปิดแล้ว', false);
 
 -- membership ids: dddddddd-...-0000000000NN
@@ -42,6 +42,18 @@ insert into public.memberships (id, member_id, package_type_id, kind, start_date
 
 insert into public.freezes (membership_id, start_date, end_date, reason)
 values ('dddddddd-0000-0000-0000-000000000012', :'today'::date - 1, :'today'::date + 2, 'ทดสอบ');
+
+-- 17: queued package B already has its own freeze; 18: cancelled package with a freeze;
+-- 19: freeze that started two days ago (end_date already includes the 7 days)
+insert into public.memberships (id, member_id, package_type_id, kind, start_date, end_date, status) values
+  ('dddddddd-0000-0000-0000-000000000017', 'ffffffff-0000-0000-0000-000000000017', 'eeeeeeee-0000-0000-0000-000000000001', 'duration', :'today'::date - 10, :'today'::date + 20, 'active'),
+  ('dddddddd-0000-0000-0000-000000000117', 'ffffffff-0000-0000-0000-000000000017', 'eeeeeeee-0000-0000-0000-000000000001', 'duration', :'today'::date + 21, :'today'::date + 56, 'active'),
+  ('dddddddd-0000-0000-0000-000000000018', 'ffffffff-0000-0000-0000-000000000018', 'eeeeeeee-0000-0000-0000-000000000001', 'duration', :'today'::date - 10, :'today'::date + 27, 'cancelled'),
+  ('dddddddd-0000-0000-0000-000000000019', 'ffffffff-0000-0000-0000-000000000019', 'eeeeeeee-0000-0000-0000-000000000001', 'duration', :'today'::date - 10, :'today'::date + 25, 'active');
+insert into public.freezes (membership_id, start_date, end_date, reason) values
+  ('dddddddd-0000-0000-0000-000000000117', :'today'::date + 25, :'today'::date + 30, 'คิวถัดไป'),
+  ('dddddddd-0000-0000-0000-000000000018', :'today'::date, :'today'::date + 6, 'ถูกยกเลิก'),
+  ('dddddddd-0000-0000-0000-000000000019', :'today'::date - 2, :'today'::date + 4, 'กำลังพัก');
 
 select throws_ok(
   $$insert into public.check_ins (member_id, override, override_reason) values ('ffffffff-0000-0000-0000-000000000009', true, '  ')$$,
@@ -136,6 +148,21 @@ select ok((select end_date = :'today'::date + 20 from public.memberships where i
 select public.unfreeze_membership((select id from public.freezes where membership_id = 'dddddddd-0000-0000-0000-000000000014'));
 select ok((select start_date = :'today'::date + 21 and end_date = :'today'::date + 50
   from public.memberships where id = 'dddddddd-0000-0000-0000-000000000114'), 'unfreeze_shifts_stacked_back');
+
+select public.freeze_membership('dddddddd-0000-0000-0000-000000000017', :'today', :'today'::date + 6, 'ลา');
+select ok((select start_date = :'today'::date + 32 and end_date = :'today'::date + 37
+  from public.freezes where membership_id = 'dddddddd-0000-0000-0000-000000000117'), 'queued_freeze_moves_with_shift');
+
+select throws_ok(format('select public.freeze_membership(%L, %L, %L, %L)', 'dddddddd-0000-0000-0000-000000000011', :'today', :'today', 'x'),
+  'P0001', 'วันเริ่มพักต้องไม่ก่อนวันเริ่มแพ็กเกจ', 'freeze_before_package_start_rejected');
+
+select throws_ok(format('select public.unfreeze_membership(%L)', (select id from public.freezes where membership_id = 'dddddddd-0000-0000-0000-000000000018')),
+  'P0001', 'แพ็กเกจนี้ถูกยกเลิกแล้ว', 'unfreeze_cancelled_membership_rejected');
+
+select public.unfreeze_membership((select id from public.freezes where membership_id = 'dddddddd-0000-0000-0000-000000000019'));
+select ok((select end_date = :'today'::date + 20 from public.memberships where id = 'dddddddd-0000-0000-0000-000000000019')
+  and (select status = 'active' and end_date = :'today'::date - 1 from public.freezes where membership_id = 'dddddddd-0000-0000-0000-000000000019'),
+  'unfreeze_running_restores_remaining');
 
 select throws_ok(
   $$insert into public.check_ins (member_id) values ('ffffffff-0000-0000-0000-000000000001')$$,

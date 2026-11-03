@@ -67,7 +67,7 @@ export default async function MemberDetailPage({ params }: PageProps<"/members/[
                   </p>
                 </div>
                 <span className={`rounded px-2 py-0.5 text-sm ${STATE_STYLES[m.state]}`}>{MEMBERSHIP_STATE_LABELS[m.state]}</span>
-                {m.kind !== "day" && (m.freezes.length > 0 || ["active", "frozen", "upcoming"].includes(m.state)) && (
+                {m.kind !== "day" && m.state !== "cancelled" && (m.freezes.length > 0 || ["active", "frozen", "upcoming"].includes(m.state)) && (
                   <FreezeControls
                     membershipId={m.id}
                     freezes={m.freezes}
