@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(22);
+select plan(23);
 
 -- Fixtures -----------------------------------------------------------------
 insert into auth.users (id, email) values
@@ -86,6 +86,13 @@ select is(
   :'sale1'::jsonb ->> 'sale_id',
   'same_request_id_returns_same_sale');
 
+select throws_ok(
+  $$select public.create_sale('cccccccc-0000-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-000000000001',
+    '[{"package_type_id":"bbbbbbbb-0000-0000-0000-000000000004","member_ids":["aaaaaaaa-0000-0000-0000-000000000001"]}]',
+    0, 'transfer')$$,
+  'P0001', 'รายการนี้ถูกบันทึกไปแล้วด้วยข้อมูลอื่น กรุณาตรวจที่รายการบิลก่อนขายใหม่',
+  'same_request_id_different_cart_rejected');
+
 select public.create_sale(
   'cccccccc-0000-0000-0000-000000000003', 'aaaaaaaa-0000-0000-0000-000000000001',
   '[{"package_type_id":"bbbbbbbb-0000-0000-0000-000000000002","member_ids":["aaaaaaaa-0000-0000-0000-000000000001","aaaaaaaa-0000-0000-0000-000000000004"]}]',
@@ -138,8 +145,8 @@ select throws_ok(
   'P0001', 'กรุณาเลือกสมาชิก', 'buyer_required');
 
 select throws_ok(
-  $$insert into public.sales (receipt_no, subtotal, total, payment_method, client_request_id)
-    values ('X', 1, 1, 'cash', gen_random_uuid())$$,
+  $$insert into public.sales (receipt_no, subtotal, total, payment_method, client_request_id, request_hash)
+    values ('X', 1, 1, 'cash', gen_random_uuid(), 'x')$$,
   '42501', null, 'staff_cannot_insert_sales_directly');
 
 select throws_ok(

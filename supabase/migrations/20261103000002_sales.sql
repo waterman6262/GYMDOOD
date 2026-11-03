@@ -19,6 +19,7 @@ create table public.sales (
   voided_at timestamptz,
   receipt_token text not null unique default encode(extensions.gen_random_bytes(16), 'hex'),
   client_request_id uuid not null unique,
+  request_hash text not null,
   created_at timestamptz not null default now(),
   created_by uuid references public.staff (id),
   check (discount <= subtotal)
@@ -108,14 +109,23 @@ declare
   v_sale_item_id uuid;
   v_start date;
   v_end date;
+  v_hash text := md5(jsonb_build_array(p_member_id, p_items, coalesce(p_discount, 0), p_payment_method)::text);
 begin
   if v_staff is null then
     raise exception 'ไม่มีสิทธิ์ทำรายการ';
   end if;
 
-  -- A retried request (double tap, network retry) gets the original sale back.
+  -- Concurrent calls with the same request id queue here, so the second one
+  -- sees the first one's committed sale below instead of a duplicate-key error.
+  perform pg_advisory_xact_lock(hashtextextended(p_client_request_id::text, 0));
+
+  -- A retried request (double tap, network retry) gets the original sale back,
+  -- but only if it is the same cart; otherwise the receipt wouldn't match.
   select * into v_sale from public.sales where client_request_id = p_client_request_id;
   if found then
+    if v_sale.request_hash <> v_hash then
+      raise exception 'รายการนี้ถูกบันทึกไปแล้วด้วยข้อมูลอื่น กรุณาตรวจที่รายการบิลก่อนขายใหม่';
+    end if;
     return public.sale_result(v_sale);
   end if;
 
@@ -168,10 +178,10 @@ begin
   on conflict (year) do update set last_no = public.receipt_counters.last_no + 1
   returning last_no into v_no;
 
-  insert into public.sales (receipt_no, member_id, subtotal, discount, total, payment_method, client_request_id, created_by)
+  insert into public.sales (receipt_no, member_id, subtotal, discount, total, payment_method, client_request_id, request_hash, created_by)
   values (
     format('R%s-%s', extract(year from v_today)::int, lpad(v_no::text, 6, '0')),
-    p_member_id, v_subtotal, v_discount, v_subtotal - v_discount, p_payment_method, p_client_request_id, v_staff
+    p_member_id, v_subtotal, v_discount, v_subtotal - v_discount, p_payment_method, p_client_request_id, v_hash, v_staff
   )
   returning * into v_sale;
 

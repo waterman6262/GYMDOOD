@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PACKAGE_KIND_LABELS, type PackageKind } from "@/lib/packages/schema";
 import { cartError, computeTotals, toSaleItems, type CartLine, type Discount } from "@/lib/sales/cart";
 import { baht, PAYMENT_LABELS, type PaymentMethod } from "@/lib/sales/format";
@@ -23,9 +23,13 @@ export function SellScreen({ packages, promptpayId, initialBuyer }: Props) {
   const [payment, setPayment] = useState<PaymentMethod | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  // One id per cart: a retried or double-tapped submit returns the same sale.
+  // One id per cart contents: a retried or double-tapped submit of the same
+  // cart returns the same sale; any change to the cart starts a new request.
   const requestId = useRef<string>(crypto.randomUUID());
   const submitting = useRef(false);
+  useEffect(() => {
+    requestId.current = crypto.randomUUID();
+  }, [buyer, lines, discount, payment]);
 
   const totals = computeTotals(lines, discount);
   const promptpayMissing = payment === "promptpay" && !promptpayId;
