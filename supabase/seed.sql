@@ -44,3 +44,10 @@ insert into public.members (member_code, name, phone, note) values
   ('A1000005', 'ปิยะ ครอบครัว', '0844444444', 'ลูก ใช้เบอร์พ่อ');
 
 update public.settings set gym_name = 'GYMDOOD', receipt_footer = 'ขอบคุณที่ใช้บริการ' where id = 1;
+
+insert into public.products (name, price, track_stock, stock_qty, low_stock_at) values
+  ('น้ำดื่ม', 10, true, 48, 12),
+  ('เวย์โปรตีน 1 ซอง', 60, true, 20, 5),
+  ('เกลือแร่', 25, true, 3, 6),
+  ('เช่าผ้าเช็ดตัว', 20, false, 0, 0),
+  ('เช่าล็อกเกอร์ (วัน)', 30, false, 0, 0);
