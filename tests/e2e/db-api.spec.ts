@@ -80,3 +80,48 @@ test("concurrent_last_item_sells_once", async () => {
   const { data: after } = await staff.from("products").select("stock_qty").eq("id", product!.id).single();
   expect(after!.stock_qty).toBe(0);
 });
+
+test("concurrent_last_seat_books_once", async () => {
+  const owner = await ownerClient();
+  const staff = await staffClient();
+  const { data: type } = await owner.from("class_types").select("id").eq("name", "โยคะ").single();
+  const start = new Date(Date.now() + 24 * 3600_000);
+  const { data: session, error } = await owner
+    .from("class_sessions")
+    .insert({
+      class_type_id: type!.id,
+      starts_at: start.toISOString(),
+      ends_at: new Date(start.getTime() + 3600_000).toISOString(),
+      capacity: 1,
+    })
+    .select("id")
+    .single();
+  expect(error).toBeNull();
+
+  const { data: pkg } = await staff.from("package_types").select("id").eq("name", "รายเดือน").single();
+  const memberIds: string[] = [];
+  for (const n of [1, 2]) {
+    const { data: m } = await staff.from("members").insert({ name: `ที่นั่งสุดท้าย ${n} ${Date.now()}` }).select("id").single();
+    const sale = await staff.rpc("create_sale", {
+      p_client_request_id: crypto.randomUUID(),
+      p_member_id: m!.id,
+      p_items: [{ package_type_id: pkg!.id, member_ids: [m!.id] }],
+      p_discount: 0,
+      p_payment_method: "cash",
+    });
+    expect(sale.error).toBeNull();
+    memberIds.push(m!.id);
+  }
+
+  const results = await Promise.all(
+    memberIds.map((id) => staff.rpc("book_class", { p_session_id: session!.id, p_member_id: id })),
+  );
+  expect(results.filter((r) => !r.error)).toHaveLength(1);
+  expect(results.find((r) => r.error)!.error!.message).toBe("คลาสเต็มแล้ว");
+  const { count } = await staff
+    .from("class_bookings")
+    .select("id", { count: "exact", head: true })
+    .eq("class_session_id", session!.id)
+    .neq("status", "cancelled");
+  expect(count).toBe(1);
+});
