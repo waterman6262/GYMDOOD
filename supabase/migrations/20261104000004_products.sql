@@ -301,13 +301,14 @@ begin
   update public.memberships set status = 'cancelled'
   where sale_item_id in (select id from public.sale_items where sale_id = p_sale_id);
 
-  -- Add back on top of today's count (receipts or adjustments may have happened since).
+  -- Put back exactly what this sale took off the shelf (its own movements, so a
+  -- later change to track_stock can't add or lose units), on top of today's
+  -- count since receipts or adjustments may have happened in between.
   with returned as (
-    select i.product_id, sum(i.qty)::int as qty
-    from public.sale_items i
-    join public.products p on p.id = i.product_id
-    where i.sale_id = p_sale_id and i.item_type = 'product' and p.track_stock
-    group by i.product_id
+    select product_id, (-sum(change))::int as qty
+    from public.stock_movements
+    where sale_id = p_sale_id and reason = 'sale'
+    group by product_id
   ), moved as (
     insert into public.stock_movements (product_id, change, reason, sale_id, created_by)
     select product_id, qty, 'void', p_sale_id, public.current_staff_id() from returned
@@ -316,6 +317,24 @@ begin
   from returned r where p.id = r.product_id;
 end
 $$;
+
+-- Turning tracking back on: the old count went stale while sales weren't
+-- counted, so start from 0 (recorded) and let the owner recount with adjust_stock.
+create function public.products_reset_on_track() returns trigger
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  if not old.track_stock and new.track_stock and old.stock_qty <> 0 then
+    insert into public.stock_movements (product_id, change, reason, note, created_by)
+    values (new.id, -old.stock_qty, 'adjust', 'เริ่มนับสต็อกใหม่ กรุณานับแล้วปรับยอด', public.current_staff_id());
+    new.stock_qty := 0;
+  end if;
+  return new;
+end
+$$;
+
+create trigger products_reset_on_track before update of track_stock on public.products
+  for each row execute function public.products_reset_on_track();
 
 -- Row Level Security / privileges
 alter table public.products enable row level security;

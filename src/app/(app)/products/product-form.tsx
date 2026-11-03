@@ -39,6 +39,11 @@ export function ProductForm({ editing }: { editing?: ProductRowData }) {
         นับสต็อก
         <span className="text-sm text-slate-500">(ไม่ต้องติ๊กสำหรับบริการ เช่น ค่าเช่าล็อกเกอร์)</span>
       </label>
+      {editing && !editing.track_stock && (
+        <p className="text-sm text-amber-700 sm:col-span-4">
+          ถ้าเปิดนับสต็อก ยอดจะเริ่มที่ 0 แล้วกด &quot;ปรับยอด&quot; ตามจำนวนที่นับได้จริง
+        </p>
+      )}
       {state.error && (
         <p role="alert" className="field-error sm:col-span-4">
           {state.error}

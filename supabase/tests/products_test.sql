@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(21);
+select plan(24);
 
 -- Fixtures -----------------------------------------------------------------
 insert into auth.users (id, email) values
@@ -17,7 +17,9 @@ insert into public.package_types (id, name, kind, price, duration_days)
 insert into public.products (id, name, price, track_stock, stock_qty, low_stock_at, active) values
   ('99999999-0000-0000-0000-0000000000f1', 'A', 10, true, 5, 2, true),
   ('99999999-0000-0000-0000-0000000000f2', 'B', 20, false, 0, 0, true),
-  ('99999999-0000-0000-0000-0000000000f3', 'C', 30, true, 10, 2, false);
+  ('99999999-0000-0000-0000-0000000000f3', 'C', 30, true, 10, 2, false),
+  ('99999999-0000-0000-0000-0000000000f4', 'D', 10, false, 0, 0, true),
+  ('99999999-0000-0000-0000-0000000000f5', 'E', 10, true, 10, 0, true);
 
 -- As staff -----------------------------------------------------------------
 set local role authenticated;
@@ -121,6 +123,31 @@ select is((select count(*) from public.stock_movements), :'moves_before'::bigint
 
 select throws_ok($$update public.products set stock_qty = 100$$, '42501', null, 'owner_cannot_update_stock_directly');
 select isnt_empty($$update public.products set price = 12 where name = 'A' returning id$$, 'owner_can_edit_price');
+
+-- Tracking switched after the sale -------------------------------------------
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-0000000000d2","role":"authenticated"}';
+select public.create_sale('77777777-0000-0000-0000-00000000000a', null,
+  '[{"product_id":"99999999-0000-0000-0000-0000000000f4","qty":3}]', 0, 'cash') as sd \gset
+select public.create_sale('77777777-0000-0000-0000-00000000000b', null,
+  '[{"product_id":"99999999-0000-0000-0000-0000000000f5","qty":2}]', 0, 'cash') as se \gset
+
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-0000000000d1","role":"authenticated"}';
+update public.products set track_stock = true where id = '99999999-0000-0000-0000-0000000000f4';
+select public.adjust_stock('99999999-0000-0000-0000-0000000000f4', 20, 'นับ');
+select public.void_sale((:'sd'::jsonb ->> 'sale_id')::uuid, 'ทดสอบ');
+select is((select stock_qty from public.products where id = '99999999-0000-0000-0000-0000000000f4'), 20,
+  'void_returns_only_what_was_deducted');
+
+update public.products set track_stock = false where id = '99999999-0000-0000-0000-0000000000f5';
+select public.void_sale((:'se'::jsonb ->> 'sale_id')::uuid, 'ทดสอบ');
+select is((select stock_qty from public.products where id = '99999999-0000-0000-0000-0000000000f5'), 10,
+  'void_after_tracking_off_returns_units');
+
+update public.products set track_stock = true where id = '99999999-0000-0000-0000-0000000000f5';
+select ok((select stock_qty = 0 from public.products where id = '99999999-0000-0000-0000-0000000000f5')
+  and exists (select 1 from public.stock_movements where product_id = '99999999-0000-0000-0000-0000000000f5'
+              and reason = 'adjust' and change = -10),
+  'tracking_back_on_resets_count');
 
 select * from finish();
 rollback;
