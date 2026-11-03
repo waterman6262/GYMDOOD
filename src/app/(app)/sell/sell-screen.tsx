@@ -3,7 +3,15 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { PACKAGE_KIND_LABELS, type PackageKind } from "@/lib/packages/schema";
-import { cartError, computeTotals, toSaleItems, type CartLine, type Discount } from "@/lib/sales/cart";
+import {
+  addProduct,
+  cartError,
+  computeTotals,
+  toSaleItems,
+  type CartLine,
+  type Discount,
+  type SellableProduct,
+} from "@/lib/sales/cart";
 import { baht, PAYMENT_LABELS, type PaymentMethod } from "@/lib/sales/format";
 import { submitSale, type MemberHit } from "./actions";
 import { MemberPicker } from "./member-picker";
@@ -12,9 +20,9 @@ import { PromptPayQr } from "./promptpay-qr";
 export type SellPackage = { id: string; name: string; kind: PackageKind; price: number; seats: 1 | 2; tag: string | null };
 type Buyer = Pick<MemberHit, "id" | "name" | "member_code">;
 
-type Props = { packages: SellPackage[]; promptpayId: string; initialBuyer: Buyer | null };
+type Props = { packages: SellPackage[]; products: SellableProduct[]; promptpayId: string; initialBuyer: Buyer | null };
 
-export function SellScreen({ packages, promptpayId, initialBuyer }: Props) {
+export function SellScreen({ packages, products, promptpayId, initialBuyer }: Props) {
   const router = useRouter();
   const [buyer, setBuyer] = useState<Buyer | null>(initialBuyer);
   const [lines, setLines] = useState<CartLine[]>([]);
@@ -36,7 +44,8 @@ export function SellScreen({ packages, promptpayId, initialBuyer }: Props) {
 
   function chooseBuyer(member: Buyer) {
     setBuyer(member);
-    setLines([]);
+    // Package lines belong to the previous buyer; products can stay.
+    setLines((prev) => prev.filter((l) => l.kind === "product"));
     setSecondNames({});
     setError(null);
   }
@@ -50,6 +59,15 @@ export function SellScreen({ packages, promptpayId, initialBuyer }: Props) {
     setError(null);
   }
 
+  function changeQty(key: string, delta: number) {
+    setLines((prev) =>
+      prev
+        .map((l) => (l.key === key && l.kind === "product" ? { ...l, qty: l.qty + delta } : l))
+        .filter((l) => l.kind !== "product" || l.qty > 0),
+    );
+    setError(null);
+  }
+
   function setSecondMember(key: string, member: MemberHit) {
     setLines((prev) =>
       prev.map((l) => (l.key === key && l.kind === "package" ? { ...l, memberIds: [l.memberIds[0], member.id] } : l)),
@@ -60,8 +78,10 @@ export function SellScreen({ packages, promptpayId, initialBuyer }: Props) {
 
   async function checkout() {
     if (submitting.current) return;
-    if (!buyer) return setError("กรุณาเลือกสมาชิก");
-    const problem = cartError(lines, buyer?.id ?? null);
+    // Check against the latest stock counts (refreshed after each failed sale).
+    const stock = new Map(products.map((p) => [p.id, p.stock_qty]));
+    const current = lines.map((l) => (l.kind === "product" ? { ...l, stock: stock.get(l.productId) ?? 0 } : l));
+    const problem = cartError(current, buyer?.id ?? null);
     if (problem) return setError(problem);
     if (!payment) return setError("กรุณาเลือกวิธีชำระเงิน");
 
@@ -70,7 +90,7 @@ export function SellScreen({ packages, promptpayId, initialBuyer }: Props) {
     setError(null);
     const result = await submitSale({
       clientRequestId: requestId.current,
-      memberId: buyer.id,
+      memberId: buyer?.id ?? null,
       items: toSaleItems(lines),
       discount: totals.discountAmount,
       paymentMethod: payment,
@@ -79,6 +99,8 @@ export function SellScreen({ packages, promptpayId, initialBuyer }: Props) {
       submitting.current = false;
       setPending(false);
       setError(result.error);
+      // Stock may have changed on another tablet; reload the counts.
+      router.refresh();
       return;
     }
     router.push(`/sales/${result.saleId}`);
@@ -116,6 +138,34 @@ export function SellScreen({ packages, promptpayId, initialBuyer }: Props) {
             ))}
           </div>
         </div>
+        <div className="card space-y-3">
+          <h2 className="font-semibold">สินค้า</h2>
+          <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
+            {products.map((p) => {
+              const soldOut = p.track_stock && p.stock_qty <= 0;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  aria-label={`เพิ่ม ${p.name}`}
+                  disabled={soldOut}
+                  onClick={() => {
+                    setLines((prev) => addProduct(prev, p));
+                    setError(null);
+                  }}
+                  className="flex min-h-16 flex-col items-start justify-between rounded-xl p-3 text-left ring-1 ring-slate-200 hover:bg-emerald-50 hover:ring-emerald-300 disabled:opacity-40"
+                >
+                  <span className="font-medium">{p.name}</span>
+                  <span className="flex w-full items-end justify-between gap-2 text-sm text-slate-500">
+                    <span>{p.track_stock ? (soldOut ? "หมด" : `เหลือ ${p.stock_qty} ชิ้น`) : ""}</span>
+                    <span className="font-semibold text-slate-900">{baht(p.price)}</span>
+                  </span>
+                </button>
+              );
+            })}
+            {products.length === 0 && <p className="text-sm text-slate-500">ยังไม่มีสินค้า</p>}
+          </div>
+        </div>
       </section>
 
       <aside className="card h-fit space-y-4 lg:sticky lg:top-4">
@@ -130,13 +180,36 @@ export function SellScreen({ packages, promptpayId, initialBuyer }: Props) {
           )}
         </div>
 
-        <ul className="space-y-3">
+        <ul data-testid="cart" className="space-y-3">
           {lines.map((line) => (
             <li key={line.key} className="space-y-2 border-b border-slate-100 pb-3">
               <div className="flex items-center justify-between gap-2">
-                <span>{line.name}</span>
+                <span>
+                  {line.name}
+                  {line.kind === "product" && <span className="text-slate-500"> × {line.qty}</span>}
+                </span>
                 <span className="flex items-center gap-2">
-                  {baht(line.price)}
+                  {line.kind === "product" && (
+                    <>
+                      <button
+                        type="button"
+                        aria-label={`ลด ${line.name}`}
+                        onClick={() => changeQty(line.key, -1)}
+                        className="size-9 rounded-lg ring-1 ring-slate-300"
+                      >
+                        −
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`เพิ่มจำนวน ${line.name}`}
+                        onClick={() => changeQty(line.key, 1)}
+                        className="size-9 rounded-lg ring-1 ring-slate-300"
+                      >
+                        +
+                      </button>
+                    </>
+                  )}
+                  {baht(line.kind === "product" ? line.price * line.qty : line.price)}
                   <button
                     type="button"
                     onClick={() => setLines((prev) => prev.filter((l) => l.key !== line.key))}

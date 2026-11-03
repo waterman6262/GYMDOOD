@@ -15,7 +15,7 @@ export async function findMembers(q: string): Promise<MemberHit[]> {
 
 export type SubmitSaleInput = {
   clientRequestId: string;
-  memberId: string;
+  memberId: string | null;
   items: ReturnType<typeof toSaleItems>;
   discount: number;
   paymentMethod: PaymentMethod;

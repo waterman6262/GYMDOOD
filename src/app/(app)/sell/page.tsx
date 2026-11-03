@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getMember } from "@/lib/members/queries";
 import { createClient } from "@/lib/supabase/server";
+import type { SellableProduct } from "@/lib/sales/cart";
 import { SellScreen, type SellPackage } from "./sell-screen";
 
 const KIND_ORDER = { day: 0, duration: 1, visits: 2, pt: 3 } as const;
@@ -9,8 +10,9 @@ export default async function SellPage({ searchParams }: PageProps<"/sell">) {
   const { member } = await searchParams;
   const supabase = await createClient();
 
-  const [{ data: packages }, { data: settings }, buyer] = await Promise.all([
+  const [{ data: packages }, { data: products }, { data: settings }, buyer] = await Promise.all([
     supabase.from("package_types").select("id, name, kind, price, seats, tag").eq("active", true).order("price"),
+    supabase.from("products").select("id, name, price, track_stock, stock_qty").eq("active", true).order("name"),
     supabase.from("settings").select("promptpay_id").eq("id", 1).single(),
     typeof member === "string" ? getMember(member) : Promise.resolve(null),
   ]);
@@ -27,6 +29,7 @@ export default async function SellPage({ searchParams }: PageProps<"/sell">) {
       </div>
       <SellScreen
         packages={sorted}
+        products={(products ?? []) as SellableProduct[]}
         promptpayId={settings?.promptpay_id ?? ""}
         initialBuyer={buyer?.active ? { id: buyer.id, name: buyer.name, member_code: buyer.member_code } : null}
       />
