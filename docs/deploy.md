@@ -49,10 +49,10 @@ npx supabase link --project-ref <Project ref>
 (ถามรหัสผ่านฐานข้อมูล ใส่ค่าที่จดไว้ในขั้นที่ 1)
 
 ```bash
-npx supabase db push
+npx supabase db push --remote
 ```
 
-ตอบ `Y` เมื่อถามยืนยัน ระบบจะสร้างตาราง ฟังก์ชัน สิทธิ์ และที่เก็บรูปสมาชิกให้ทั้งหมด
+ตรวจว่าบรรทัด `Target:` เป็นชื่อโปรเจกต์ของคุณ (ไม่ใช่ `local stack`) แล้วตอบ `Y` เมื่อถามยืนยัน ระบบจะสร้างตาราง ฟังก์ชัน สิทธิ์ และที่เก็บรูปสมาชิกให้ทั้งหมด
 
 ## ขั้นที่ 4: สร้างบัญชีเจ้าของคนแรก
 
@@ -99,7 +99,7 @@ npx supabase db push
 ต้องเปิด **Docker Desktop** ไว้ก่อน แล้วรันที่โฟลเดอร์โปรเจกต์ (เปลี่ยนวันที่ในชื่อไฟล์):
 
 ```bash
-npx supabase db dump --data-only -f backups/backup-2026-11-04.sql
+npx supabase db dump --remote --data-only -f backups/backup-2026-11-04.sql
 ```
 
 - ไฟล์อยู่ในโฟลเดอร์ `backups/` ซึ่ง git ไม่เก็บ (ไฟล์นี้มีข้อมูลสมาชิกและบัญชีผู้ใช้ **ห้ามส่งขึ้น GitHub หรือส่งในแชต**) แล้วคัดลอกไปเก็บไว้อีกที่ เช่น Google Drive ส่วนตัว
@@ -124,4 +124,4 @@ npx supabase db dump --data-only -f backups/backup-2026-11-04.sql
 ## อัปเดตระบบในอนาคต
 
 - โค้ด: push ขึ้น `main` แล้ว Vercel อัปเดตเว็บให้เอง
-- ถ้ามี migration ใหม่ในโฟลเดอร์ `supabase/migrations`: รัน `npx supabase db push` **ก่อน** push โค้ด
+- ถ้ามี migration ใหม่ในโฟลเดอร์ `supabase/migrations`: รัน `npx supabase db push --remote` **ก่อน** push โค้ด
