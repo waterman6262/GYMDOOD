@@ -2,8 +2,20 @@ import Link from "next/link";
 import { getCurrentStaff } from "@/lib/auth";
 import { bangkokToday } from "@/lib/classes/time";
 import { parseRange } from "@/lib/reports/range";
-import type { SalesReport } from "@/lib/reports/types";
+import type {
+  CheckinsReport,
+  ClassesReport,
+  MembersReport,
+  OverrideRow,
+  ProductsReport,
+  SalesReport,
+} from "@/lib/reports/types";
 import { createClient } from "@/lib/supabase/server";
+import { CheckinsReportView } from "./checkins-report";
+import { ClassesReportView } from "./classes-report";
+import { MembersReportView } from "./members-report";
+import { OverridesReportView } from "./overrides-report";
+import { ProductsReportView } from "./products-report";
 import { RangeForm } from "./range-form";
 import { SalesReportView } from "./sales-report";
 
@@ -56,12 +68,27 @@ export default async function ReportsPage({ searchParams }: PageProps<"/reports"
   if (tab === "sales") {
     const r = await load<SalesReport>("report_sales", range);
     body = r.error ? <ErrorBox message={r.error} /> : <SalesReportView data={r.data!} from={from} to={to} />;
+  } else if (tab === "checkins") {
+    const r = await load<CheckinsReport>("report_checkins", range);
+    body = r.error ? <ErrorBox message={r.error} /> : <CheckinsReportView data={r.data!} singleDay={from === to} />;
+  } else if (tab === "members") {
+    const r = await load<MembersReport>("report_members");
+    body = r.error ? <ErrorBox message={r.error} /> : <MembersReportView data={r.data!} />;
+  } else if (tab === "products") {
+    const r = await load<ProductsReport>("report_products", range);
+    body = r.error ? <ErrorBox message={r.error} /> : <ProductsReportView data={r.data!} />;
+  } else if (tab === "overrides") {
+    const r = await load<OverrideRow[]>("report_overrides", range);
+    body = r.error ? <ErrorBox message={r.error} /> : <OverridesReportView rows={r.data!} />;
+  } else {
+    const r = await load<ClassesReport>("report_classes", range);
+    body = r.error ? <ErrorBox message={r.error} /> : <ClassesReportView data={r.data!} />;
   }
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">รายงาน</h1>
-      <nav className="flex flex-wrap gap-2 border-b border-slate-200 pb-2">
+      <nav data-testid="report-tabs" className="flex flex-wrap gap-2 border-b border-slate-200 pb-2">
         {TABS.map((t) => (
           <Link
             key={t.id}
