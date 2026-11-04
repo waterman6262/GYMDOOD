@@ -49,3 +49,7 @@ next-env.d.ts
 # playwright
 /test-results/
 /playwright-report/
+
+# database backups contain member data — never commit
+/backups/
+/backup-*.sql

@@ -1,9 +1,11 @@
 "use client";
 
 import { useActionState } from "react";
+import { useOnline } from "@/components/online-status";
 import { signIn, type SignInState } from "./actions";
 
 export function LoginForm({ inactive }: { inactive: boolean }) {
+  const online = useOnline();
   const [state, formAction, pending] = useActionState<SignInState, FormData>(
     signIn,
     inactive ? { error: "บัญชีนี้ถูกปิดใช้งาน กรุณาติดต่อเจ้าของยิม" } : {},
@@ -25,7 +27,7 @@ export function LoginForm({ inactive }: { inactive: boolean }) {
           {state.error}
         </p>
       )}
-      <button type="submit" disabled={pending} className="btn-primary w-full">
+      <button type="submit" disabled={pending || !online} className="btn-primary w-full">
         {pending ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบ"}
       </button>
     </form>

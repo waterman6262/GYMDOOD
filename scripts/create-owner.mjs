@@ -6,8 +6,8 @@
 // Needs NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (from --env or the environment).
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "node:fs";
-import { createInterface } from "node:readline";
 import { parseArgs } from "node:util";
+import { askHidden } from "./lib/hidden-prompt.mjs";
 
 const { values: args } = parseArgs({
   options: {
@@ -32,27 +32,12 @@ const env = { ...process.env };
 if (args.env) {
   for (const line of readFileSync(args.env, "utf8").split(/\r?\n/)) {
     const match = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
-    if (match) env[match[1]] = match[2].replace(/^["']|["']$/g, "");
+    if (match) env[match[1]] = match[2].trim().replace(/^["']|["']$/g, "");
   }
 }
 const url = env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY;
 if (!url || !serviceKey) fail("ไม่พบ NEXT_PUBLIC_SUPABASE_URL หรือ SUPABASE_SERVICE_ROLE_KEY");
-
-/** Reads a line from the terminal without echoing it. */
-function askHidden(question) {
-  return new Promise((resolve) => {
-    const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: true });
-    rl._writeToOutput = (text) => {
-      if (text.includes(question)) process.stdout.write(text);
-    };
-    rl.question(question, (answer) => {
-      rl.close();
-      process.stdout.write("\n");
-      resolve(answer);
-    });
-  });
-}
 
 const password = env.OWNER_PASSWORD ?? (await askHidden("รหัสผ่านเจ้าของ (อย่างน้อย 10 ตัวอักษร): "));
 if (password.length < 10) fail("รหัสผ่านต้องยาวอย่างน้อย 10 ตัวอักษร");

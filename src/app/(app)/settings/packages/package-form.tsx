@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { useOnline } from "@/components/online-status";
 import { PACKAGE_KIND_LABELS, type PackageKind } from "@/lib/packages/schema";
 import { savePackageType, type PackageFormState } from "./actions";
 
@@ -18,6 +19,7 @@ export type PackageTypeRow = {
 };
 
 export function PackageForm({ editing }: { editing?: PackageTypeRow }) {
+  const online = useOnline();
   const [state, formAction, pending] = useActionState<PackageFormState, FormData>(savePackageType, {});
   const [kind, setKind] = useState<PackageKind>(editing?.kind ?? "duration");
 
@@ -79,7 +81,7 @@ export function PackageForm({ editing }: { editing?: PackageTypeRow }) {
         </p>
       )}
       <div className="sm:col-span-2">
-        <button type="submit" disabled={pending} className="btn-primary">
+        <button type="submit" disabled={pending || !online} className="btn-primary">
           {pending ? "กำลังบันทึก…" : "บันทึกแพ็กเกจ"}
         </button>
       </div>

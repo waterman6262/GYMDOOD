@@ -42,7 +42,9 @@ export function CheckInScreen({ today }: { today: TodayCheckIn[] }) {
       }
       setBusy(true);
       setError(null);
-      const res = await checkInMember(memberId, reason);
+      const res = await checkInMember(memberId, reason).catch(() => ({
+        error: "เช็กอินไม่สำเร็จ กรุณาตรวจอินเทอร์เน็ตแล้วลองใหม่",
+      }));
       setBusy(false);
       if ("error" in res) {
         setError(res.error);
@@ -70,8 +72,12 @@ export function CheckInScreen({ today }: { today: TodayCheckIn[] }) {
       }
       setBusy(true);
       setError(null);
-      const found = await findForCheckIn(value);
+      const found = await findForCheckIn(value).catch(() => null);
       setBusy(false);
+      if (!found) {
+        setError("เช็กอินไม่สำเร็จ กรุณาตรวจอินเทอร์เน็ตแล้วลองใหม่");
+        return;
+      }
       if (found.exact) return runCheckIn(found.exact.id);
       setResult(null);
       setHits(found.hits);

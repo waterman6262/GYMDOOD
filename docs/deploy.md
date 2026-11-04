@@ -96,11 +96,30 @@ npx supabase db push
 
 ## สำรองข้อมูล (แนะนำทุกสัปดาห์)
 
+ต้องเปิด **Docker Desktop** ไว้ก่อน แล้วรันที่โฟลเดอร์โปรเจกต์ (เปลี่ยนวันที่ในชื่อไฟล์):
+
 ```bash
-npx supabase db dump --data-only -f backup-YYYY-MM-DD.sql
+npx supabase db dump --data-only -f backups/backup-2026-11-04.sql
 ```
 
-เก็บไฟล์ไว้ในที่ปลอดภัย (ไฟล์นี้มีข้อมูลสมาชิก ห้ามใส่ใน git) — รูปสมาชิกดาวน์โหลดได้จาก Supabase → Storage → `member-photos`
+- ไฟล์อยู่ในโฟลเดอร์ `backups/` ซึ่ง git ไม่เก็บ (ไฟล์นี้มีข้อมูลสมาชิกและบัญชีผู้ใช้ **ห้ามส่งขึ้น GitHub หรือส่งในแชต**) แล้วคัดลอกไปเก็บไว้อีกที่ เช่น Google Drive ส่วนตัว
+- ไฟล์มีข้อมูลทุกตาราง รวมบัญชีล็อกอิน แต่ **ไม่มีไฟล์รูปสมาชิก** — ดาวน์โหลดรูปเองได้จาก Supabase → Storage → `member-photos`
+
+## กู้คืนข้อมูลจากไฟล์สำรอง
+
+ใช้เมื่อฐานข้อมูลเสียหรือต้องย้ายไปโปรเจกต์ใหม่ (ทดสอบขั้นตอนนี้แล้วกับฐานข้อมูลในเครื่อง)
+
+1. สร้างโปรเจกต์ Supabase **ใหม่ที่ว่างเปล่า** แล้วทำขั้นที่ 1–3 (ห้ามทำขั้นที่ 4 เพราะบัญชีเจ้าของมาจากไฟล์สำรองอยู่แล้ว)
+2. Supabase → **Connect** → **Session pooler** → คัดลอก Connection string (ใส่รหัสผ่านฐานข้อมูลแทน `[YOUR-PASSWORD]`)
+3. เปิด Docker Desktop แล้วรันใน **PowerShell** ที่โฟลเดอร์โปรเจกต์ (เปลี่ยน `<connection string>` และชื่อไฟล์):
+
+   ```powershell
+   docker run --rm -v "${PWD}:/work" postgres:17 psql "<connection string>" -v ON_ERROR_STOP=1 --single-transaction -f /work/supabase/restore/prepare.sql -f /work/backups/backup-2026-11-04.sql
+   ```
+
+   ถ้ามี error ระบบจะยกเลิกทั้งหมด ไม่มีข้อมูลครึ่ง ๆ กลาง ๆ
+4. เปลี่ยนค่า Environment Variables ใน Vercel เป็นของโปรเจกต์ใหม่ แล้ว **Redeploy**
+5. อัปโหลดรูปสมาชิกกลับเข้า Storage → `member-photos` (ชื่อไฟล์เดิม)
 
 ## อัปเดตระบบในอนาคต
 

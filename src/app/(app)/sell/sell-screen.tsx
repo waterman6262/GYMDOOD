@@ -90,13 +90,16 @@ export function SellScreen({ packages, products, promptpayId, initialBuyer }: Pr
     submitting.current = true;
     setPending(true);
     setError(null);
+    // A request that never comes back (Wi-Fi up, internet down) rejects instead
+    // of returning an error. The cart and request id are kept, so pressing pay
+    // again returns the same sale if the first attempt did reach the server.
     const result = await submitSale({
       clientRequestId: requestId.current,
       memberId: buyer?.id ?? null,
       items: toSaleItems(lines),
       discount: totals.discountAmount,
       paymentMethod: payment,
-    });
+    }).catch(() => ({ error: "บันทึกไม่สำเร็จ กรุณาตรวจอินเทอร์เน็ตแล้วลองใหม่" }));
     if ("error" in result) {
       submitting.current = false;
       setPending(false);

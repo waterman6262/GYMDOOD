@@ -1,10 +1,12 @@
 "use client";
 
 import { useActionState } from "react";
+import { useOnline } from "@/components/online-status";
 import type { ShopSettings } from "@/lib/settings/schema";
 import { saveShopSettings, type ShopFormState } from "./actions";
 
 export function ShopForm({ settings }: { settings: ShopSettings }) {
+  const online = useOnline();
   const [state, formAction, pending] = useActionState<ShopFormState, FormData>(saveShopSettings, {});
 
   return (
@@ -41,7 +43,7 @@ export function ShopForm({ settings }: { settings: ShopSettings }) {
         </p>
       )}
       {state.saved && !pending && <p className="text-sm text-green-700">บันทึกแล้ว</p>}
-      <button type="submit" disabled={pending} className="btn-primary">
+      <button type="submit" disabled={pending || !online} className="btn-primary">
         {pending ? "กำลังบันทึก…" : "บันทึก"}
       </button>
     </form>

@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useOnline } from "@/components/online-status";
 import { createClient } from "@/lib/supabase/client";
 import { setMemberPhoto } from "../actions";
 
@@ -22,6 +23,7 @@ async function resize(file: File): Promise<Blob> {
 }
 
 export function PhotoUpload({ memberId, name, photoUrl }: { memberId: string; name: string; photoUrl: string | null }) {
+  const online = useOnline();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -69,7 +71,7 @@ export function PhotoUpload({ memberId, name, photoUrl }: { memberId: string; na
             accept="image/*"
             capture="user"
             className="sr-only"
-            disabled={busy}
+            disabled={busy || !online}
             onChange={(e) => {
               onFile(e.target.files?.[0]);
               e.target.value = "";

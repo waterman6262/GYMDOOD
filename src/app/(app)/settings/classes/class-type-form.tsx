@@ -1,9 +1,11 @@
 "use client";
 
 import { useActionState } from "react";
+import { useOnline } from "@/components/online-status";
 import { saveClassType, type SettingsFormState } from "./actions";
 
 export function ClassTypeForm() {
+  const online = useOnline();
   const [state, formAction, pending] = useActionState<SettingsFormState, FormData>(saveClassType, {});
 
   return (
@@ -23,7 +25,7 @@ export function ClassTypeForm() {
         </p>
       )}
       <div className="sm:col-span-3">
-        <button type="submit" disabled={pending} className="btn-primary">
+        <button type="submit" disabled={pending || !online} className="btn-primary">
           บันทึกคลาส
         </button>
       </div>

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
+import { useOnline } from "@/components/online-status";
 import { saveProduct, type ProductFormState } from "./actions";
 
 export type ProductRowData = {
@@ -16,6 +17,7 @@ export type ProductRowData = {
 
 /** Owner's add / edit form. */
 export function ProductForm({ editing }: { editing?: ProductRowData }) {
+  const online = useOnline();
   const [state, formAction, pending] = useActionState<ProductFormState, FormData>(saveProduct, {});
 
   return (
@@ -50,7 +52,7 @@ export function ProductForm({ editing }: { editing?: ProductRowData }) {
         </p>
       )}
       <div className="flex gap-2 sm:col-span-4">
-        <button type="submit" disabled={pending} className="btn-primary">
+        <button type="submit" disabled={pending || !online} className="btn-primary">
           บันทึกสินค้า
         </button>
         {editing && (

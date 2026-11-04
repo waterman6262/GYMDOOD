@@ -1,11 +1,13 @@
 "use client";
 
 import { useActionState } from "react";
+import { useOnline } from "@/components/online-status";
 import { createSessions, type ClassActionState } from "./actions";
 
 type Option = { id: string; name: string };
 
 export function SessionForm({ classTypes, trainers, today }: { classTypes: Option[]; trainers: Option[]; today: string }) {
+  const online = useOnline();
   const [state, formAction, pending] = useActionState<ClassActionState, FormData>(createSessions, {});
 
   return (
@@ -58,7 +60,7 @@ export function SessionForm({ classTypes, trainers, today }: { classTypes: Optio
         </p>
       )}
       <div className="sm:col-span-4">
-        <button type="submit" disabled={pending || classTypes.length === 0} className="btn-primary">
+        <button type="submit" disabled={!online || pending || classTypes.length === 0} className="btn-primary">
           บันทึกรอบคลาส
         </button>
         {classTypes.length === 0 && <span className="ml-3 text-sm text-slate-500">เพิ่มชนิดคลาสที่ ตั้งค่า → คลาส ก่อน</span>}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { useOnline } from "@/components/online-status";
 import type { Member } from "@/lib/members/queries";
 import type { MemberFormState } from "./actions";
 
@@ -10,6 +11,7 @@ type Props = {
 };
 
 export function MemberForm({ action, member }: Props) {
+  const online = useOnline();
   const [state, formAction, pending] = useActionState(action, {});
 
   return (
@@ -36,7 +38,7 @@ export function MemberForm({ action, member }: Props) {
         </p>
       )}
       {state.saved && <p className="text-sm text-green-700">บันทึกแล้ว</p>}
-      <button type="submit" disabled={pending} className="btn-primary">
+      <button type="submit" disabled={pending || !online} className="btn-primary">
         {pending ? "กำลังบันทึก…" : "บันทึก"}
       </button>
     </form>

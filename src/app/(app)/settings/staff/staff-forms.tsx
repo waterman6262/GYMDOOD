@@ -1,9 +1,11 @@
 "use client";
 
 import { useActionState } from "react";
+import { useOnline } from "@/components/online-status";
 import { createStaffAccount, setStaffActive, type StaffActiveState, type StaffFormState } from "./actions";
 
 export function NewStaffForm() {
+  const online = useOnline();
   const [state, formAction, pending] = useActionState<StaffFormState, FormData>(createStaffAccount, {});
 
   return (
@@ -34,7 +36,7 @@ export function NewStaffForm() {
         </p>
       )}
       <div className="sm:col-span-2">
-        <button type="submit" disabled={pending} className="btn-primary">
+        <button type="submit" disabled={pending || !online} className="btn-primary">
           {pending ? "กำลังสร้าง…" : "สร้างบัญชี"}
         </button>
       </div>
@@ -43,6 +45,7 @@ export function NewStaffForm() {
 }
 
 export function StaffActiveButton({ staffId, active }: { staffId: string; active: boolean }) {
+  const online = useOnline();
   const [state, formAction, pending] = useActionState<StaffActiveState>(() => setStaffActive(staffId, !active), {});
 
   return (
@@ -52,7 +55,7 @@ export function StaffActiveButton({ staffId, active }: { staffId: string; active
           {state.error}
         </span>
       )}
-      <button type="submit" disabled={pending} className={active ? "btn-danger" : "btn"}>
+      <button type="submit" disabled={pending || !online} className={active ? "btn-danger" : "btn"}>
         {active ? "ปิดบัญชี" : "เปิดบัญชี"}
       </button>
     </form>

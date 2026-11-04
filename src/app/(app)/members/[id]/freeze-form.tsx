@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
+import { useOnline } from "@/components/online-status";
 import type { FreezeView } from "@/lib/memberships/queries";
 import { formatThaiDate } from "@/lib/sales/format";
 import { freezeMembership, unfreezeMembership, type FreezeState } from "../freeze-actions";
@@ -16,6 +17,7 @@ export function FreezeControls({
   canFreeze: boolean;
   today: string;
 }) {
+  const online = useOnline();
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState<FreezeState, FormData>(
     async (prev, formData) => {
@@ -37,7 +39,7 @@ export function FreezeControls({
           </span>
           <button
             type="button"
-            disabled={unfreezing}
+            disabled={unfreezing || !online}
             onClick={() =>
               startUnfreeze(async () => {
                 const res = await unfreezeMembership(f.id);
@@ -81,7 +83,7 @@ export function FreezeControls({
             </p>
           )}
           <div className="flex gap-2 sm:col-span-3">
-            <button type="submit" disabled={pending} className="btn-primary">
+            <button type="submit" disabled={pending || !online} className="btn-primary">
               ยืนยันพัก
             </button>
             <button type="button" onClick={() => setOpen(false)} className="btn">

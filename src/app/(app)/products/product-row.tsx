@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useState, useTransition } from "react";
+import { useOnline } from "@/components/online-status";
 import { baht } from "@/lib/sales/format";
 import { adjustStock, receiveStock, setProductActive, type ProductFormState } from "./actions";
 import type { ProductRowData } from "./product-form";
@@ -9,6 +10,7 @@ import type { ProductRowData } from "./product-form";
 type Mode = "none" | "receive" | "adjust";
 
 export function ProductRow({ product, isOwner }: { product: ProductRowData; isOwner: boolean }) {
+  const online = useOnline();
   const [mode, setMode] = useState<Mode>("none");
   const close = (res: ProductFormState) => {
     if (!res.error) setMode("none");
@@ -68,7 +70,7 @@ export function ProductRow({ product, isOwner }: { product: ProductRowData; isOw
               </Link>
               <button
                 type="button"
-                disabled={toggling}
+                disabled={toggling || !online}
                 onClick={() => startToggle(async () => void (await setProductActive(product.id, !product.active)))}
                 className="btn"
               >
@@ -88,7 +90,7 @@ export function ProductRow({ product, isOwner }: { product: ProductRowData; isOw
               <span className="field-label">หมายเหตุ</span>
               <input name="note" className="input" />
             </label>
-            <button type="submit" disabled={receiving} className="btn-primary">
+            <button type="submit" disabled={receiving || !online} className="btn-primary">
               บันทึกรับเข้า
             </button>
             {receiveState.error && (
@@ -109,7 +111,7 @@ export function ProductRow({ product, isOwner }: { product: ProductRowData; isOw
               <span className="field-label">เหตุผล</span>
               <input name="note" required className="input" />
             </label>
-            <button type="submit" disabled={adjusting} className="btn-primary">
+            <button type="submit" disabled={adjusting || !online} className="btn-primary">
               บันทึกยอด
             </button>
             {adjustState.error && (

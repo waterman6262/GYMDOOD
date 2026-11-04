@@ -46,3 +46,44 @@ test.describe("offline", () => {
     await context.setOffline(false);
   });
 });
+
+test.describe("connection lost after sending", () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page, STAFF);
+  });
+
+  // Wi-Fi still connected but the internet is down: navigator.onLine stays
+  // true, so only the failed request tells us. Server actions are POSTs.
+  async function failServerActions(page: import("@playwright/test").Page, path: string) {
+    await page.route(`**${path}`, (route) =>
+      route.request().method() === "POST" ? route.abort("internetdisconnected") : route.continue(),
+    );
+  }
+
+  test("sale_request_fails_shows_error_and_unlocks", async ({ page }) => {
+    await page.goto("/sell");
+    await addPackage(page, "น้ำดื่ม");
+    await page.getByRole("button", { name: "เงินสด", exact: true }).click();
+    await failServerActions(page, "/sell");
+    await page.getByRole("button", { name: "ชำระเงิน" }).click();
+    await expect(page.getByText("บันทึกไม่สำเร็จ กรุณาตรวจอินเทอร์เน็ตแล้วลองใหม่")).toBeVisible();
+    await expect(page.getByRole("button", { name: "ชำระเงิน" })).toBeEnabled();
+    await expect(page).toHaveURL(/\/sell/);
+  });
+
+  test("checkin_request_fails_shows_error_and_unlocks", async ({ page }) => {
+    await page.goto("/");
+    await failServerActions(page, "/");
+    await page.getByLabel("สแกนหรือค้นหาสมาชิก").fill("A1000002");
+    await page.getByLabel("สแกนหรือค้นหาสมาชิก").press("Enter");
+    await expect(page.getByText("เช็กอินไม่สำเร็จ กรุณาตรวจอินเทอร์เน็ตแล้วลองใหม่")).toBeVisible();
+    await expect(page.getByText("กำลังตรวจสอบ…")).toHaveCount(0);
+  });
+
+  test("new_member_save_disabled_offline", async ({ page, context }) => {
+    await page.goto("/members/new");
+    await context.setOffline(true);
+    await expect(page.getByRole("button", { name: "บันทึก" })).toBeDisabled();
+    await context.setOffline(false);
+  });
+});
