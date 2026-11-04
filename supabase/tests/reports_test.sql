@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(22);
+select plan(26);
 
 select public.bangkok_today() as today \gset
 
@@ -18,6 +18,7 @@ select ('21212121-0000-0000-0000-0000000000' || lpad(n::text, 2, '0'))::uuid, '�
 from generate_series(1, 20) n;
 
 insert into public.package_types (id, name, kind, price, duration_days, visits, pt_sessions) values
+  ('22222222-0000-0000-0000-000000000004', 'วันรายงาน', 'day', 100, 1, null, null),
   ('22222222-0000-0000-0000-000000000001', 'เดือนรายงาน', 'duration', 1200, 30, null, null),
   ('22222222-0000-0000-0000-000000000002', 'ครั้งรายงาน', 'visits', 900, 60, 10, null),
   ('22222222-0000-0000-0000-000000000003', 'PTรายงาน', 'pt', 6000, 90, null, 10);
@@ -77,7 +78,12 @@ insert into public.memberships (member_id, package_type_id, kind, start_date, en
   ('21212121-0000-0000-0000-000000000013', '22222222-0000-0000-0000-000000000002', 'visits', :'today'::date - 5, :'today'::date + 40, 2),
   ('21212121-0000-0000-0000-000000000014', '22222222-0000-0000-0000-000000000001', 'duration', :'today'::date - 34, :'today'::date - 5, null),
   ('21212121-0000-0000-0000-000000000015', '22222222-0000-0000-0000-000000000001', 'duration', :'today'::date - 34, :'today'::date - 5, null),
-  ('21212121-0000-0000-0000-000000000015', '22222222-0000-0000-0000-000000000001', 'duration', :'today'::date - 1, :'today'::date + 28, null);
+  ('21212121-0000-0000-0000-000000000015', '22222222-0000-0000-0000-000000000001', 'duration', :'today'::date - 1, :'today'::date + 28, null),
+  -- 16: walk-in with yesterday's day pass; 17: visits pack used up; 18: 1 visit left but bought a monthly ending sooner
+  ('21212121-0000-0000-0000-000000000016', '22222222-0000-0000-0000-000000000004', 'day', :'today'::date - 1, :'today'::date - 1, null),
+  ('21212121-0000-0000-0000-000000000017', '22222222-0000-0000-0000-000000000002', 'visits', :'today'::date - 20, :'today'::date + 40, 0),
+  ('21212121-0000-0000-0000-000000000018', '22222222-0000-0000-0000-000000000002', 'visits', :'today'::date - 10, :'today'::date + 50, 1),
+  ('21212121-0000-0000-0000-000000000018', '22222222-0000-0000-0000-000000000001', 'duration', :'today', :'today'::date + 29, null);
 
 -- As owner -----------------------------------------------------------------
 set local role authenticated;
@@ -134,6 +140,13 @@ select ok(exists (select 1 from jsonb_array_elements(:'m'::jsonb -> 'expired_rec
 select ok(not exists (select 1 from jsonb_array_elements(:'m'::jsonb -> 'expired_recent') e
                       where e ->> 'member_id' = '21212121-0000-0000-0000-000000000015'), 'rebought_not_expired');
 
+select ok(not exists (select 1 from jsonb_array_elements(:'m'::jsonb -> 'expired_recent') e
+                      where e ->> 'member_id' = '21212121-0000-0000-0000-000000000016'), 'day_pass_not_in_expired_recent');
+select ok(exists (select 1 from jsonb_array_elements(:'m'::jsonb -> 'expired_recent') e
+                  where e ->> 'member_id' = '21212121-0000-0000-0000-000000000017'), 'used_up_visits_listed_as_expired');
+select ok(not exists (select 1 from jsonb_array_elements(:'m'::jsonb -> 'expiring') e
+                      where e ->> 'member_id' = '21212121-0000-0000-0000-000000000018'), 'renewal_ending_sooner_not_expiring');
+
 select public.report_products('2030-01-10', '2030-01-10') as p \gset
 select ok((:'p'::jsonb -> 'best_sellers' -> 0 ->> 'qty')::int = 5
   and (:'p'::jsonb -> 'best_sellers' -> 1 ->> 'name') = 'เวย์รายงาน'
@@ -161,6 +174,7 @@ set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-0000000000f2","r
 select lives_ok(format('select public.report_sales(%L, %L)', :'today', :'today'), 'staff_today_sales_ok');
 select throws_ok($$select public.report_sales('2030-01-10', '2030-01-10')$$,
   'P0001', 'เฉพาะเจ้าของเท่านั้นที่ดูรายงานนี้ได้', 'staff_other_day_rejected');
+select is((select count(*) from public.sales where receipt_no like 'RT-%'), 0::bigint, 'staff_cannot_read_old_sales');
 select throws_ok($$select public.report_members()$$,
   'P0001', 'เฉพาะเจ้าของเท่านั้นที่ดูรายงานนี้ได้', 'staff_members_report_rejected');
 

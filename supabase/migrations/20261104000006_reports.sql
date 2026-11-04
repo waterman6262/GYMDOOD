@@ -149,11 +149,13 @@ begin
           and (ms.kind <> 'visits' or ms.visits_left > 0)
           and not public.is_frozen(ms.id, v_today)
           and (ms.end_date <= v_today + 6 or (ms.kind = 'visits' and ms.visits_left <= 2))
+          -- Renewed = another usable gym package still runs past the 7-day window,
+          -- even if it ends before this one (e.g. leftover visits + a new monthly).
           and not exists (
             select 1 from public.memberships o
             where o.member_id = ms.member_id and o.id <> ms.id and o.status = 'active'
-              and o.kind in ('day', 'duration', 'visits') and o.end_date > ms.end_date
-              and (o.kind <> 'visits' or o.visits_left > 0)
+              and o.kind in ('duration', 'visits') and o.end_date > v_today + 6
+              and (o.kind <> 'visits' or o.visits_left > 2)
           )
         order by ms.member_id, ms.end_date
       ) e
@@ -161,10 +163,19 @@ begin
     'expired_recent', (
       select coalesce(jsonb_agg(to_jsonb(x) order by x.last_end_date desc, x.name), '[]')
       from (
-        select m.id as member_id, m.name, m.phone, max(ms.end_date) as last_end_date
+        -- Day passes are walk-ins, not lapsed members. A used-up visits pack
+        -- ended on its last check-in (or yesterday), not on its end_date.
+        select m.id as member_id, m.name, m.phone, max(x.ended) as last_end_date
         from public.members m
-        join public.memberships ms on ms.member_id = m.id and ms.status = 'active'
-          and ms.kind in ('day', 'duration', 'visits')
+        join (
+          select ms.member_id,
+            case when ms.kind = 'visits' and ms.visits_left <= 0 then least(
+              ms.end_date,
+              coalesce((select max(c.check_in_date) from public.check_ins c where c.membership_id = ms.id), v_today - 1)
+            ) else ms.end_date end as ended
+          from public.memberships ms
+          where ms.status = 'active' and ms.kind in ('duration', 'visits')
+        ) x on x.member_id = m.id
         where m.active
           and not public.has_gym_access(m.id, v_today)
           and not exists (
@@ -173,7 +184,7 @@ begin
               and u.kind in ('day', 'duration', 'visits') and u.start_date > v_today
           )
         group by m.id, m.name, m.phone
-        having max(ms.end_date) between v_today - 30 and v_today - 1
+        having max(x.ended) between v_today - 30 and v_today - 1
       ) x
     )
   );
@@ -277,3 +288,20 @@ grant execute on function public.report_members() to authenticated;
 grant execute on function public.report_products(date, date) to authenticated;
 grant execute on function public.report_overrides(date, date) to authenticated;
 grant execute on function public.report_classes(date, date) to authenticated;
+
+-- Spec §3/§7: staff see today's sales only. Enforced on the rows themselves so
+-- the API can't be used to rebuild older days. get_receipt (public links) is
+-- security definer and unaffected.
+drop policy sales_select on public.sales;
+create policy sales_select on public.sales for select to authenticated
+  using (public.is_owner() or (public.is_staff() and public.session_date(created_at) = public.bangkok_today()));
+
+drop policy sale_items_select on public.sale_items;
+create policy sale_items_select on public.sale_items for select to authenticated
+  using (
+    public.is_owner()
+    or (public.is_staff() and exists (
+      select 1 from public.sales s
+      where s.id = sale_id and public.session_date(s.created_at) = public.bangkok_today()
+    ))
+  );
