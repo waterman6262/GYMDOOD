@@ -33,3 +33,18 @@ test.describe("pwa", () => {
     expect(res.status()).toBe(200);
   });
 });
+
+test.describe("security headers", () => {
+  test("security_headers_present", async ({ request }) => {
+    const headers = (await request.get("/login")).headers();
+    expect(headers["x-content-type-options"]).toBe("nosniff");
+    expect(headers["x-frame-options"]).toBe("DENY");
+    expect(headers["referrer-policy"]).toBe("strict-origin-when-cross-origin");
+  });
+
+  test("camera_allowed_by_permissions_policy", async ({ request }) => {
+    const policy = (await request.get("/login")).headers()["permissions-policy"];
+    expect(policy).toContain("camera=(self)");
+    expect(policy).toContain("microphone=()");
+  });
+});
