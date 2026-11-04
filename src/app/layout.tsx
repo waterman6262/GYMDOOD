@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Noto_Sans_Thai } from "next/font/google";
 import "./globals.css";
 
@@ -10,6 +10,12 @@ const notoSansThai = Noto_Sans_Thai({
 export const metadata: Metadata = {
   title: "GYMDOOD POS",
   description: "ระบบขายหน้าร้านและสมาชิกสำหรับยิม",
+  appleWebApp: { capable: true, title: "GYMDOOD", statusBarStyle: "default" },
+  icons: { icon: "/icons/icon-192.png", apple: "/icons/apple-touch-icon.png" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#4f46e5",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
