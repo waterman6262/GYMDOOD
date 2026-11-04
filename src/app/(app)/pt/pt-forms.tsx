@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useState, useTransition } from "react";
+import { useOnline } from "@/components/online-status";
 import { MemberPicker } from "../sell/member-picker";
 import { cancelPt, completePt, createPtAppointment, type PtState } from "./actions";
 
@@ -21,6 +22,7 @@ export function PtScheduler({
 }) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState<PtState, FormData>(createPtAppointment, {});
+  const online = useOnline();
 
   return (
     <div className="card space-y-4">
@@ -75,7 +77,7 @@ export function PtScheduler({
             </p>
           )}
           <div className="sm:col-span-4">
-            <button type="submit" disabled={pending} className="btn-primary">
+            <button type="submit" disabled={pending || !online} className="btn-primary">
               บันทึกนัด
             </button>
           </div>
@@ -88,6 +90,7 @@ export function PtScheduler({
 export function PtActions({ appointmentId }: { appointmentId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const online = useOnline();
   const run = (action: () => Promise<PtState>) =>
     startTransition(async () => {
       const res = await action();
@@ -96,10 +99,10 @@ export function PtActions({ appointmentId }: { appointmentId: string }) {
 
   return (
     <span className="flex flex-wrap items-center gap-2">
-      <button type="button" disabled={pending} onClick={() => run(() => completePt(appointmentId))} className="btn-primary">
+      <button type="button" disabled={pending || !online} onClick={() => run(() => completePt(appointmentId))} className="btn-primary">
         เทรนแล้ว
       </button>
-      <button type="button" disabled={pending} onClick={() => run(() => cancelPt(appointmentId))} className="btn">
+      <button type="button" disabled={pending || !online} onClick={() => run(() => cancelPt(appointmentId))} className="btn">
         ยกเลิกนัด
       </button>
       {error && (

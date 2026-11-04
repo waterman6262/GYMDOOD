@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentStaff } from "@/lib/auth";
 import { signOut } from "@/app/login/actions";
+import { OfflineBanner } from "@/components/online-status";
 import { NavLinks } from "./nav-links";
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
@@ -9,6 +10,8 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   if (!staff) redirect("/login?inactive=1");
 
   return (
+    <>
+    <OfflineBanner />
     <div className="flex min-h-screen flex-col md:flex-row">
       <aside className="flex shrink-0 flex-col gap-4 bg-slate-900 p-4 text-slate-100 md:w-56">
         <div>
@@ -26,5 +29,6 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       </aside>
       <main className="flex-1 p-4 md:p-8">{children}</main>
     </div>
+    </>
   );
 }

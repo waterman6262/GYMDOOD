@@ -13,6 +13,7 @@ import {
   type SellableProduct,
 } from "@/lib/sales/cart";
 import { baht, PAYMENT_LABELS, type PaymentMethod } from "@/lib/sales/format";
+import { useOnline } from "@/components/online-status";
 import { submitSale, type MemberHit } from "./actions";
 import { MemberPicker } from "./member-picker";
 import { PromptPayQr } from "./promptpay-qr";
@@ -24,6 +25,7 @@ type Props = { packages: SellPackage[]; products: SellableProduct[]; promptpayId
 
 export function SellScreen({ packages, products, promptpayId, initialBuyer }: Props) {
   const router = useRouter();
+  const online = useOnline();
   const [buyer, setBuyer] = useState<Buyer | null>(initialBuyer);
   const [lines, setLines] = useState<CartLine[]>([]);
   const [secondNames, setSecondNames] = useState<Record<string, string>>({});
@@ -302,7 +304,7 @@ export function SellScreen({ packages, products, promptpayId, initialBuyer }: Pr
         <button
           type="button"
           onClick={checkout}
-          disabled={pending || promptpayMissing}
+          disabled={pending || promptpayMissing || !online}
           className="btn-primary w-full text-lg"
         >
           {pending ? "กำลังบันทึก…" : payment === "promptpay" ? "ได้รับเงินแล้ว" : "ชำระเงิน"}

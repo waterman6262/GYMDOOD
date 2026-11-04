@@ -1,11 +1,13 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { useOnline } from "@/components/online-status";
 import { voidSale, type VoidState } from "../actions";
 
 export function VoidForm({ saleId }: { saleId: string }) {
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState<VoidState, FormData>(voidSale.bind(null, saleId), {});
+  const online = useOnline();
 
   if (!open) {
     return (
@@ -27,7 +29,7 @@ export function VoidForm({ saleId }: { saleId: string }) {
         </p>
       )}
       <div className="flex gap-2">
-        <button type="submit" disabled={pending} className="btn-danger">
+        <button type="submit" disabled={pending || !online} className="btn-danger">
           {pending ? "กำลังยกเลิก…" : "ยืนยันยกเลิกบิล"}
         </button>
         <button type="button" onClick={() => setOpen(false)} className="btn">

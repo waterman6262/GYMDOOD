@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useOnline } from "@/components/online-status";
 import { MemberPicker } from "../../sell/member-picker";
 import { bookMember, cancelBooking, markAttendance, type ClassActionState } from "../actions";
 
@@ -27,9 +28,14 @@ export function Roster({
 }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const online = useOnline();
 
   const run = (action: () => Promise<ClassActionState>) =>
     startTransition(async () => {
+      if (!navigator.onLine) {
+        setError("ออฟไลน์อยู่ ยังบันทึกไม่ได้");
+        return;
+      }
       const res = await action();
       setError(res.error ?? null);
     });
@@ -61,16 +67,16 @@ export function Roster({
                 <span className={`rounded px-2 py-0.5 text-sm ${STATUS_STYLES[e.status]}`}>{STATUS_LABELS[e.status]}</span>
               )}
               {!cancelled && e.status !== "attended" && (
-                <button type="button" disabled={pending} onClick={() => run(() => markAttendance(e.id, true))} className="btn-primary">
+                <button type="button" disabled={pending || !online} onClick={() => run(() => markAttendance(e.id, true))} className="btn-primary">
                   มาแล้ว
                 </button>
               )}
               {!cancelled && e.status === "booked" && (
                 <>
-                  <button type="button" disabled={pending} onClick={() => run(() => markAttendance(e.id, false))} className="btn">
+                  <button type="button" disabled={pending || !online} onClick={() => run(() => markAttendance(e.id, false))} className="btn">
                     ไม่มา
                   </button>
-                  <button type="button" disabled={pending} onClick={() => run(() => cancelBooking(e.id))} className="btn-danger">
+                  <button type="button" disabled={pending || !online} onClick={() => run(() => cancelBooking(e.id))} className="btn-danger">
                     ยกเลิกจอง
                   </button>
                 </>

@@ -7,6 +7,7 @@ import { DENY_REASON_LABELS, type CheckInResult } from "@/lib/checkin/types";
 import { formatThaiDate } from "@/lib/sales/format";
 import type { MemberHit } from "../sell/actions";
 import { checkInMember, findForCheckIn } from "./actions";
+import { useOnline } from "@/components/online-status";
 import { CameraScanner } from "./camera-scanner";
 
 export type TodayCheckIn = { id: string; time: string; name: string; override: boolean };
@@ -19,6 +20,7 @@ const STATUS_STYLES = {
 
 export function CheckInScreen({ today }: { today: TodayCheckIn[] }) {
   const router = useRouter();
+  const online = useOnline();
   const inputRef = useRef<HTMLInputElement>(null);
   const [text, setText] = useState("");
   const [hits, setHits] = useState<MemberHit[]>([]);
@@ -34,6 +36,10 @@ export function CheckInScreen({ today }: { today: TodayCheckIn[] }) {
 
   const runCheckIn = useCallback(
     async (memberId: string, reason?: string) => {
+      if (!navigator.onLine) {
+        setError("ออฟไลน์อยู่ ยังเช็กอินไม่ได้");
+        return;
+      }
       setBusy(true);
       setError(null);
       const res = await checkInMember(memberId, reason);
@@ -58,6 +64,10 @@ export function CheckInScreen({ today }: { today: TodayCheckIn[] }) {
   const lookup = useCallback(
     async (value: string) => {
       if (!value.trim()) return;
+      if (!navigator.onLine) {
+        setError("ออฟไลน์อยู่ ยังเช็กอินไม่ได้");
+        return;
+      }
       setBusy(true);
       setError(null);
       const found = await findForCheckIn(value);
@@ -201,7 +211,7 @@ export function CheckInScreen({ today }: { today: TodayCheckIn[] }) {
                     {overrideError}
                   </p>
                 )}
-                <button type="button" onClick={confirmOverride} disabled={busy} className="btn-danger">
+                <button type="button" onClick={confirmOverride} disabled={busy || !online} className="btn-danger">
                   ยืนยันปล่อยเข้า
                 </button>
               </div>
