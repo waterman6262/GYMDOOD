@@ -10,6 +10,7 @@ type SaleRow = {
   total: number;
   payment_method: PaymentMethod;
   status: "paid" | "voided";
+  void_reason: string | null;
   members: { name: string } | null;
 };
 
@@ -30,7 +31,7 @@ export default async function SalesPage({ searchParams }: PageProps<"/sales">) {
   const supabase = await createClient();
   const { data } = await supabase
     .from("sales")
-    .select("id, receipt_no, created_at, total, payment_method, status, members(name)")
+    .select("id, receipt_no, created_at, total, payment_method, status, void_reason, members(name)")
     .gte("created_at", `${date}T00:00:00+07:00`)
     .lt("created_at", `${date}T24:00:00+07:00`)
     .order("created_at", { ascending: false });
@@ -83,7 +84,7 @@ export default async function SalesPage({ searchParams }: PageProps<"/sales">) {
                   <td className="px-4 py-3">{s.members?.name ?? "-"}</td>
                   <td className="px-4 py-3">{PAYMENT_LABELS[s.payment_method]}</td>
                   <td className="px-4 py-3 text-right">{baht(s.total)}</td>
-                  <td className="px-4 py-3 text-sm no-underline">{s.status === "voided" && "ยกเลิก"}</td>
+                  <td className="px-4 py-3 text-sm no-underline">{s.status === "voided" && `ยกเลิก: ${s.void_reason ?? ""}`}</td>
                 </tr>
               ))}
             </tbody>

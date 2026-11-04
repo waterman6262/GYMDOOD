@@ -12,7 +12,7 @@ const NAV: NavItem[] = [
   { href: "/members", label: "สมาชิก", ready: true },
   { href: "/classes", label: "คลาส/PT", ready: true },
   { href: "/products", label: "สินค้า", ready: true },
-  { href: "/reports", label: "รายงาน", ready: false },
+  { href: "/reports", label: "รายงาน", ready: true },
   { href: "/settings/packages", label: "ตั้งค่า", ready: true, ownerOnly: true },
 ];
 
