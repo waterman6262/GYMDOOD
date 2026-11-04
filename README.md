@@ -4,6 +4,8 @@
 
 - สเปก: [docs/superpowers/specs/2026-11-03-gym-pos-design.md](docs/superpowers/specs/2026-11-03-gym-pos-design.md)
 - แผนงาน: [docs/superpowers/plans/](docs/superpowers/plans/)
+- ขึ้นระบบจริง: [docs/deploy.md](docs/deploy.md)
+- ทดสอบบนแท็บเล็ต: [docs/tablet-test.md](docs/tablet-test.md)
 
 ## รันในเครื่อง
 
